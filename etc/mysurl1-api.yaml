@@ -1,3 +1,9 @@
 Name: mysurl1-api
 Host: 0.0.0.0
 Port: 8888
+DevServer:
+  Enabled: true
+  Host: 0.0.0.0
+  Port: 6060
+  EnableMetrics: true
+  EnablePprof: true
