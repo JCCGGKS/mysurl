@@ -2,6 +2,7 @@ module mysurl1
 
 go 1.24.4
 
+
 require github.com/zeromicro/go-zero v1.10.1
 
 require (

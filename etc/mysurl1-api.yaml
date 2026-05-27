@@ -7,3 +7,5 @@ DevServer:
   Port: 6060
   EnableMetrics: true
   EnablePprof: true
+Stat:
+  DisableSampler: true

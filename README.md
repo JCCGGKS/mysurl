@@ -20,3 +20,10 @@ go tool pprof -inuse_space http://127.0.0.1:6060/debug/pprof/heap
 
 If you only want to suppress periodic `stat` logs such as
 `CPU: ..., MEMORY: ...`, call `logx.DisableStat()` during startup.
+
+This repo also supports disabling the go-zero stat background CPU sampler via
+environment variable:
+
+```bash
+GOZERO_DISABLE_STAT_SAMPLER=1 go run mysurl1.go -f etc/mysurl1-api.yaml
+```

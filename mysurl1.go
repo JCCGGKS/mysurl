@@ -12,6 +12,7 @@ import (
 	"mysurl1/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/stat"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -22,6 +23,17 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+
+	// Disable stat logs by default.
+	// logx.DisableStat()
+	// stat.DisableLog()
+
+	if !c.Stat.DisableSampler {
+		// This branch is the config-controlled entry point. Fully preventing the
+		// sampler from starting still requires moving the start logic out of the
+		// go-zero package init path.
+		stat.Stat()
+	}
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()

@@ -7,4 +7,9 @@ import "github.com/zeromicro/go-zero/rest"
 
 type Config struct {
 	rest.RestConf
+	Stat StatConf `json:",optional"`
+}
+
+type StatConf struct {
+	DisableSampler bool `json:",optional"`
 }
