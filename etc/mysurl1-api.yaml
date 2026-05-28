@@ -1,6 +1,8 @@
 Name: mysurl1-api
 Host: 0.0.0.0
 Port: 8888
+Log:
+  Stat: false
 DevServer:
   Enabled: true
   Host: 0.0.0.0
@@ -8,4 +10,16 @@ DevServer:
   EnableMetrics: true
   EnablePprof: true
 Stat:
+  DisableLog: true
   DisableSampler: true
+MySQL:
+  Host: 127.0.0.1
+  Port: 3306
+  User: root
+  Password: root
+  Database: short
+Redis:
+  Host: 127.0.0.1
+  Port: 6379
+  Password: ""
+  DB: 0

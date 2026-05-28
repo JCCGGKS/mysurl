@@ -7,9 +7,27 @@ import "github.com/zeromicro/go-zero/rest"
 
 type Config struct {
 	rest.RestConf
-	Stat StatConf `json:",optional"`
+	Stat  StatConf  `json:",optional"`
+	MySQL MySQLConf `json:",optional"`
+	Redis RedisConf `json:",optional"`
 }
 
 type StatConf struct {
+	DisableLog     bool `json:",default=true"`
 	DisableSampler bool `json:",optional"`
+}
+
+type MySQLConf struct {
+	Host     string `json:",optional"`
+	Port     int    `json:",optional"`
+	User     string `json:",optional"`
+	Password string `json:",optional"`
+	Database string `json:",optional"`
+}
+
+type RedisConf struct {
+	Host     string `json:",optional"`
+	Port     int    `json:",optional"`
+	Password string `json:",optional"`
+	DB       int    `json:",optional"`
 }
