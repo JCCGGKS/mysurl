@@ -1,0 +1,145 @@
+# 短链系统 V1 MVP PRD
+
+## 1. 文档目的
+
+定义短链系统 V1 的功能边界、接口约束和基础数据模型，作为后续服务实现与测试验收依据。
+
+## 2. 目标与非目标
+
+### 2.1 目标
+
+- 创建短链
+- 访问短链并返回 `302` 跳转
+- 使用 MySQL 持久化短链映射
+
+### 2.2 非目标
+
+- 用户体系与权限控制
+- 自定义短码
+- 短链编辑、禁用、删除
+- 过期控制业务
+- 统计报表、风控、二维码、管理后台
+
+## 3. 功能需求
+
+### 3.1 创建短链
+
+输入：
+
+- `long_url`：必填
+
+规则：
+
+- 只接受合法 `http://` 或 `https://` URL
+- 相同长链重复提交时复用已有短链
+- 短码由系统生成
+- 短码必须全局唯一
+
+输出：
+
+- `short_code`
+- `short_url`
+- `original_url`
+
+### 3.2 访问短链
+
+输入：
+
+- 路径参数 `code`
+
+规则：
+
+- 按 `short_code` 精确查询
+- 命中返回 `302`
+- 未命中返回 `404`
+
+## 4. 数据模型
+
+### 4.1 主表 `short_links`
+
+| 字段 | 类型 | 约束/说明 |
+| --- | --- | --- |
+| `id` | bigint unsigned | 主键，自增 |
+| `short_code` | varchar(16) | 短码，唯一 |
+| `original_url` | varchar(2048) | 原始长链 |
+| `url_hash` | char(64) | 规范化长链的哈希值，唯一 |
+| `status` | tinyint unsigned | 默认 `1`，预留字段 |
+| `expires_at` | datetime | 可空，预留字段 |
+| `created_at` | datetime | 创建时间 |
+| `updated_at` | datetime | 更新时间 |
+| `deleted_at` | datetime | 可空，预留字段 |
+
+### 4.2 索引
+
+- `PRIMARY KEY (id)`
+- `UNIQUE KEY uk_short_code (short_code)`
+- `UNIQUE KEY uk_url_hash (url_hash)`
+
+### 4.3 说明
+
+- V1 只使用主表
+- 相同 `original_url` 重复创建时，基于 `url_hash` 复用已有记录
+- `url_hash` 由规范化后的 `original_url` 计算得到
+- `status`、`expires_at`、`deleted_at` 仅做扩展预留
+- V1 不引入 `pv`、`uv`、访问明细表和统计聚合表
+
+## 5. 接口定义
+
+### 5.1 `POST /api/v1/links`
+
+请求体：
+
+```json
+{
+  "long_url": "https://xiaolincoding.com/other/offer.html"
+}
+```
+
+响应体：
+
+```json
+{
+  "short_code": "Jxts",
+  "short_url": "http://127.0.0.1:8888/Jxts",
+  "original_url": "https://xiaolincoding.com/other/offer.html"
+}
+```
+
+### 5.2 `GET /:code`
+
+行为：
+
+- 命中返回 `302 Found`
+- 响应头 `Location: <original_url>`
+- 未命中返回 `404 Not Found`
+
+说明：
+
+- V1 固定使用 `302`，不使用 `301`
+- `301` 可能被浏览器或中间层长期缓存，后续访问不再到达短链服务
+- 使用 `302` 可以降低永久缓存带来的统计失真风险，并为后续目标地址调整、状态控制和风控预留空间
+
+### 5.3 错误码
+
+| 状态码 | 含义 |
+| --- | --- |
+| `400` | 参数非法 |
+| `404` | 短码不存在 |
+| `500` | 服务内部错误 |
+
+## 6. 约束与验收
+
+### 6.1 处理约束
+
+- `long_url` 为空返回 `400`
+- `long_url` 非法返回 `400`
+- 短码冲突时重新生成并重试写入
+- 数据库异常返回 `500`
+
+### 6.2 验收标准
+
+- 可成功创建短链
+- 相同长链重复创建返回同一短链
+- 访问有效短链返回 `302`，且 `Location` 正确
+- 访问不存在短链返回 `404`
+- 服务重启后已创建短链仍可解析
