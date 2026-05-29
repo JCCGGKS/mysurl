@@ -5,11 +5,17 @@ package svc
 
 import (
 	"fmt"
+	"sync"
 
 	"mysurl1/internal/config"
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+)
+
+var (
+	serviceContext     *ServiceContext
+	serviceContextOnce sync.Once
 )
 
 type ServiceContext struct {
@@ -19,11 +25,15 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	return &ServiceContext{
-		Config: c,
-		DB:     newMySQL(c.MySQL),
-		Redis:  newRedis(c.Redis),
-	}
+	serviceContextOnce.Do(func() {
+		serviceContext = &ServiceContext{
+			Config: c,
+			DB:     newMySQL(c.MySQL),
+			Redis:  newRedis(c.Redis),
+		}
+	})
+
+	return serviceContext
 }
 
 func newMySQL(c config.MySQLConf) sqlx.SqlConn {
