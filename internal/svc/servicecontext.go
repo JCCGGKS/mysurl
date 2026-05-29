@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"mysurl1/internal/config"
+	"mysurl1/internal/dao"
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -19,9 +20,10 @@ var (
 )
 
 type ServiceContext struct {
-	Config config.Config
-	DB     sqlx.SqlConn
-	Redis  *goredis.Client
+	Config       config.Config
+	DB           sqlx.SqlConn
+	Redis        *goredis.Client
+	ShortLinkDAO *dao.ShortLinkDAO
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -31,6 +33,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 			DB:     newMySQL(c.MySQL),
 			Redis:  newRedis(c.Redis),
 		}
+		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
 	})
 
 	return serviceContext

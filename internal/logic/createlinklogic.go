@@ -5,9 +5,12 @@ package logic
 
 import (
 	"context"
+	"strings"
+	"time"
 
+	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
-	"mysurl1/internal/types"
+	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,70 @@ func NewCreateLinkLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.CreateLinkResponse, err error) {
-	// todo: add your logic here and delete this line
+	if l.svcCtx.DB == nil {
+		return nil, utils.InternalError("mysql is not configured")
+	}
+	if l.svcCtx.ShortLinkDAO == nil {
+		return nil, utils.InternalError("short link dao is not configured")
+	}
 
-	return
+	if err := utils.ValidateLongURL(req.LongURL); err != nil {
+		return nil, utils.BadRequest(err.Error())
+	}
+
+	originalURL := strings.TrimSpace(req.LongURL)
+	normalizedURL := utils.NormalizeOriginalURL(originalURL)
+	urlHash := utils.HashOriginalURL(normalizedURL)
+	now := time.Now()
+
+	candidates, err := l.svcCtx.ShortLinkDAO.FindAvailableByHash(l.ctx, urlHash, now)
+	if err != nil {
+		l.Errorf("query short links by hash failed: %v", err)
+		return nil, utils.InternalError("query short links failed")
+	}
+
+	for _, candidate := range candidates {
+		if utils.NormalizeOriginalURL(candidate.OriginalURL) == normalizedURL {
+			return &types.CreateLinkResponse{
+				ShortCode:   candidate.ShortCode,
+				ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, candidate.ShortCode),
+				OriginalURL: candidate.OriginalURL,
+			}, nil
+		}
+	}
+
+	expiresAt := utils.BuildExpiresAt(l.svcCtx.Config.Short, now)
+	for range 10 {
+		shortCode, genErr := utils.GenerateShortCode(l.svcCtx.Config.Short.CodeLength)
+		if genErr != nil {
+			l.Errorf("generate short code failed: %v", genErr)
+			return nil, utils.InternalError("generate short code failed")
+		}
+
+		insertErr := l.svcCtx.ShortLinkDAO.Insert(l.ctx, shortCode, originalURL, urlHash, expiresAt)
+		if insertErr == nil {
+			return &types.CreateLinkResponse{
+				ShortCode:   shortCode,
+				ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
+				OriginalURL: originalURL,
+			}, nil
+		}
+
+		if isDuplicateShortCode(insertErr) {
+			continue
+		}
+
+		l.Errorf("insert short link failed: %v", insertErr)
+		return nil, utils.InternalError("create short link failed")
+	}
+
+	return nil, utils.InternalError("generate unique short code failed")
+}
+
+func isDuplicateShortCode(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(strings.ToLower(err.Error()), "duplicate entry")
 }

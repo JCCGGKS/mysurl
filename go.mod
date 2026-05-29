@@ -2,7 +2,10 @@ module mysurl1
 
 go 1.24.4
 
-require github.com/zeromicro/go-zero v1.10.1
+require (
+	github.com/redis/go-redis/v9 v9.20.0
+	github.com/zeromicro/go-zero v1.10.1
+)
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
@@ -28,7 +31,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/redis/go-redis/v9 v9.20.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/titanous/json5 v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
