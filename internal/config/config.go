@@ -37,4 +37,5 @@ type ShortConf struct {
 	BaseURL      string `json:",optional"`
 	CodeLength   int    `json:",default=4"`
 	ExpairedDays int    `json:",default=0"`
+	Provider     string `json:",default=mysql_auto_increment,options=mysql_auto_increment|redis_incr|snowflake"`
 }
