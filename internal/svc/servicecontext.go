@@ -9,6 +9,7 @@ import (
 
 	"mysurl1/internal/config"
 	"mysurl1/internal/dao"
+	codestrategy "mysurl1/internal/logic/code_strategy"
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -20,10 +21,11 @@ var (
 )
 
 type ServiceContext struct {
-	Config       config.Config
-	DB           sqlx.SqlConn
-	Redis        *goredis.Client
-	ShortLinkDAO *dao.ShortLinkDAO
+	Config            config.Config
+	DB                sqlx.SqlConn
+	Redis             *goredis.Client
+	ShortLinkDAO      *dao.ShortLinkDAO
+	GenerateShortCode codestrategy.GenerateShortCodeFunc
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -34,9 +36,21 @@ func NewServiceContext(c config.Config) *ServiceContext {
 			Redis:  newRedis(c.Redis),
 		}
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
+		serviceContext.GenerateShortCode = mustNewGenerateShortCode(c.Short, serviceContext.ShortLinkDAO)
 	})
 
 	return serviceContext
+}
+
+func mustNewGenerateShortCode(c config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) codestrategy.GenerateShortCodeFunc {
+	generator, err := codestrategy.NewCodeGenService(c)
+	if err != nil {
+		panic(err)
+	}
+
+	return codestrategy.BuildGenerateShortCodeFunc(generator, codestrategy.NextCodeInput{
+		DAO: shortLinkDAO,
+	})
 }
 
 func newMySQL(c config.MySQLConf) sqlx.SqlConn {

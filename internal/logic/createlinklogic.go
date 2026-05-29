@@ -36,6 +36,9 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	if l.svcCtx.ShortLinkDAO == nil {
 		return nil, utils.InternalError("short link dao is not configured")
 	}
+	if l.svcCtx.GenerateShortCode == nil {
+		return nil, utils.InternalError("short code generator is not configured")
+	}
 
 	if err := utils.ValidateLongURL(req.LongURL); err != nil {
 		return nil, utils.BadRequest(err.Error())
@@ -54,46 +57,29 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 
 	for _, candidate := range candidates {
 		if utils.NormalizeOriginalURL(candidate.OriginalURL) == normalizedURL {
-			return &types.CreateLinkResponse{
-				ShortCode:   candidate.ShortCode,
-				ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, candidate.ShortCode),
-				OriginalURL: candidate.OriginalURL,
-			}, nil
+			return l.buildCreateLinkResponse(candidate.ShortCode, candidate.OriginalURL), nil
 		}
 	}
 
 	expiresAt := utils.BuildExpiresAt(l.svcCtx.Config.Short, now)
-	for range 10 {
-		shortCode, genErr := utils.GenerateShortCode(l.svcCtx.Config.Short.CodeLength)
-		if genErr != nil {
-			l.Errorf("generate short code failed: %v", genErr)
-			return nil, utils.InternalError("generate short code failed")
-		}
+	shortCode, genErr := l.svcCtx.GenerateShortCode(l.ctx)
+	if genErr != nil {
+		l.Errorf("generate short code failed: %v", genErr)
+		return nil, utils.InternalError("generate short code failed")
+	}
 
-		insertErr := l.svcCtx.ShortLinkDAO.Insert(l.ctx, shortCode, originalURL, urlHash, expiresAt)
-		if insertErr == nil {
-			return &types.CreateLinkResponse{
-				ShortCode:   shortCode,
-				ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
-				OriginalURL: originalURL,
-			}, nil
-		}
-
-		if isDuplicateShortCode(insertErr) {
-			continue
-		}
-
-		l.Errorf("insert short link failed: %v", insertErr)
+	if err := l.svcCtx.ShortLinkDAO.Insert(l.ctx, shortCode, originalURL, urlHash, expiresAt); err != nil {
+		l.Errorf("insert short link failed: %v", err)
 		return nil, utils.InternalError("create short link failed")
 	}
 
-	return nil, utils.InternalError("generate unique short code failed")
+	return l.buildCreateLinkResponse(shortCode, originalURL), nil
 }
 
-func isDuplicateShortCode(err error) bool {
-	if err == nil {
-		return false
+func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string) *types.CreateLinkResponse {
+	return &types.CreateLinkResponse{
+		ShortCode:   shortCode,
+		ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
+		OriginalURL: originalURL,
 	}
-
-	return strings.Contains(strings.ToLower(err.Error()), "duplicate entry")
 }

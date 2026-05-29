@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -11,8 +10,6 @@ import (
 
 	"mysurl1/internal/config"
 )
-
-const shortCodeAlphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func ValidateLongURL(raw string) error {
 	if strings.TrimSpace(raw) == "" {
@@ -36,17 +33,12 @@ func ValidateLongURL(raw string) error {
 }
 
 func NormalizeOriginalURL(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	return strings.TrimRight(trimmed, "/")
+	return strings.TrimRight(strings.TrimSpace(raw), "/")
 }
 
 func HashOriginalURL(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
-}
-
-func BuildShortURL(baseURL, shortCode string) string {
-	return strings.TrimRight(baseURL, "/") + "/" + shortCode
 }
 
 func BuildExpiresAt(cfg config.ShortConf, now time.Time) *time.Time {
@@ -58,20 +50,6 @@ func BuildExpiresAt(cfg config.ShortConf, now time.Time) *time.Time {
 	return &expiresAt
 }
 
-func GenerateShortCode(length int) (string, error) {
-	if length <= 0 {
-		length = 4
-	}
-
-	buf := make([]byte, length)
-	randomBytes := make([]byte, length)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return "", err
-	}
-
-	for i := range buf {
-		buf[i] = shortCodeAlphabet[int(randomBytes[i])%len(shortCodeAlphabet)]
-	}
-
-	return string(buf), nil
+func BuildShortURL(baseURL, shortCode string) string {
+	return strings.TrimRight(baseURL, "/") + "/" + shortCode
 }

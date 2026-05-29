@@ -77,6 +77,25 @@ LIMIT 1
 	return &record, nil
 }
 
+func (d *ShortLinkDAO) ExistsByCode(ctx context.Context, code string) (bool, error) {
+	var result struct {
+		Cnt int64 `db:"cnt"`
+	}
+
+	query := `
+SELECT COUNT(1) AS cnt
+FROM short_links
+WHERE short_code = ?
+LIMIT 1
+`
+
+	if err := d.conn.QueryRowCtx(ctx, &result, query, code); err != nil {
+		return false, err
+	}
+
+	return result.Cnt > 0, nil
+}
+
 func (d *ShortLinkDAO) Insert(ctx context.Context, shortCode, originalURL, urlHash string, expiresAt *time.Time) error {
 	query := `
 INSERT INTO short_links (

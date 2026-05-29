@@ -1,4 +1,4 @@
-package codefactory
+package codestrategy
 
 import (
 	"context"
@@ -7,14 +7,12 @@ import (
 
 type RedisIncrGenerator struct{}
 
-func NewRedisIncrGenerator() *RedisIncrGenerator {
-	return &RedisIncrGenerator{}
-}
+
 
 func (g *RedisIncrGenerator) Provider() string {
 	return ProviderRedisIncr
 }
 
-func (g *RedisIncrGenerator) NextCode(_ context.Context) (string, error) {
+func (g *RedisIncrGenerator) NextCode(_ context.Context, _ NextCodeInput) (string, error) {
 	return "", errors.New("redis incr generator is not implemented")
 }
