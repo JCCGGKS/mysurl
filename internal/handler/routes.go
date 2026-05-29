@@ -16,8 +16,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		[]rest.Route{
 			{
 				Method:  http.MethodGet,
-				Path:    "/from/:name",
-				Handler: Mysurl1Handler(serverCtx),
+				Path:    "/:code",
+				Handler: RedirectHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/v1/links",
+				Handler: CreateLinkHandler(serverCtx),
 			},
 		},
 	)

@@ -3,10 +3,16 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type CreateLinkRequest struct {
+	LongURL string `json:"long_url"`
 }
 
-type Response struct {
-	Message string `json:"message"`
+type CreateLinkResponse struct {
+	ShortCode   string `json:"short_code"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+type RedirectRequest struct {
+	Code string `path:"code"`
 }

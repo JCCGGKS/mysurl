@@ -12,16 +12,16 @@ import (
 	"mysurl1/internal/types"
 )
 
-func Mysurl1Handler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func CreateLinkHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.Request
+		var req types.CreateLinkRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := logic.NewMysurl1Logic(r.Context(), svcCtx)
-		resp, err := l.Mysurl1(&req)
+		l := logic.NewCreateLinkLogic(r.Context(), svcCtx)
+		resp, err := l.CreateLink(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

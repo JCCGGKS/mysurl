@@ -1,15 +1,24 @@
 syntax = "v1"
 
-type Request {
-	Name string `path:"name,options=you|me"`
+type CreateLinkRequest {
+	LongURL string `json:"long_url"`
 }
 
-type Response {
-	Message string `json:"message"`
+type CreateLinkResponse {
+	ShortCode   string `json:"short_code"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+type RedirectRequest {
+	Code string `path:"code"`
 }
 
 service mysurl1-api {
-	@handler Mysurl1Handler
-	get /from/:name (Request) returns (Response)
+	@handler CreateLinkHandler
+	post /api/v1/links (CreateLinkRequest) returns (CreateLinkResponse)
+
+	@handler RedirectHandler
+	get /:code (RedirectRequest)
 }
 
