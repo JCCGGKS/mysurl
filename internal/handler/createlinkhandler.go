@@ -4,7 +4,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -25,15 +24,9 @@ func CreateLinkHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewCreateLinkLogic(r.Context(), svcCtx)
 		resp, err := l.CreateLink(&req)
 		if err != nil {
-			var httpErr *utils.HTTPError
-			if errors.As(err, &httpErr) {
-				httpx.WriteJsonCtx(r.Context(), w, httpErr.StatusCode, utils.Error(httpErr.StatusCode, httpErr.Message))
-				return
-			}
-
-			httpx.WriteJsonCtx(r.Context(), w, http.StatusInternalServerError, utils.Error(http.StatusInternalServerError, err.Error()))
+			utils.WriteJSONError(w, r, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, utils.Success(resp))
+			utils.WriteJSONSuccess(w, r, resp)
 		}
 	}
 }

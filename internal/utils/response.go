@@ -1,12 +1,16 @@
 package utils
 
-import "time"
+import (
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
+)
 
 const (
-	CodeOK    = 0
-	MsgOK     = "ok"
-	CodeError = 1
-	MsgError  = "error"
+	CodeOK = 0
+	MsgOK  = "ok"
 )
 
 type Response struct {
@@ -16,19 +20,74 @@ type Response struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
-func NewResponse(code int, msg string, data any) Response {
+func Success(data any) Response {
 	return Response{
-		Code:      code,
-		Msg:       msg,
+		Code:      CodeOK,
+		Msg:       MsgOK,
 		Data:      data,
 		Timestamp: time.Now().Unix(),
 	}
 }
 
-func Success(data any) Response {
-	return NewResponse(CodeOK, MsgOK, data)
+func Error(code int, msg string) Response {
+	return Response{
+		Code:      code,
+		Msg:       msg,
+		Data:      nil,
+		Timestamp: time.Now().Unix(),
+	}
 }
 
-func Error(code int, msg string) Response {
-	return NewResponse(code, msg, nil)
+type HTTPError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *HTTPError) Error() string {
+	return e.Message
+}
+
+func BadRequest(message string) *HTTPError {
+	return &HTTPError{
+		StatusCode: http.StatusBadRequest,
+		Message:    message,
+	}
+}
+
+func NotFound(message string) *HTTPError {
+	return &HTTPError{
+		StatusCode: http.StatusNotFound,
+		Message:    message,
+	}
+}
+
+func InternalError(message string) *HTTPError {
+	return &HTTPError{
+		StatusCode: http.StatusInternalServerError,
+		Message:    message,
+	}
+}
+
+func WriteJSONError(w http.ResponseWriter, r *http.Request, err error) {
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		httpx.WriteJsonCtx(r.Context(), w, httpErr.StatusCode, Error(httpErr.StatusCode, httpErr.Message))
+		return
+	}
+
+	httpx.WriteJsonCtx(r.Context(), w, http.StatusInternalServerError, Error(http.StatusInternalServerError, err.Error()))
+}
+
+func WriteJSONSuccess(w http.ResponseWriter, r *http.Request, data any) {
+	httpx.OkJsonCtx(r.Context(), w, Success(data))
+}
+
+func WriteRedirectError(w http.ResponseWriter, err error) {
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		http.Error(w, httpErr.Message, httpErr.StatusCode)
+		return
+	}
+
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

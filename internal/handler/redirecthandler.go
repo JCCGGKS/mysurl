@@ -4,7 +4,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -25,13 +24,7 @@ func RedirectHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewRedirectLogic(r.Context(), svcCtx)
 		targetURL, err := l.Redirect(&req)
 		if err != nil {
-			var httpErr *utils.HTTPError
-			if errors.As(err, &httpErr) {
-				http.Error(w, httpErr.Message, httpErr.StatusCode)
-				return
-			}
-
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			utils.WriteRedirectError(w, err)
 		} else {
 			http.Redirect(w, r, targetURL, http.StatusFound)
 		}
