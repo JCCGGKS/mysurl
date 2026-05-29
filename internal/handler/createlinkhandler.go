@@ -27,13 +27,13 @@ func CreateLinkHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if err != nil {
 			var httpErr *utils.HTTPError
 			if errors.As(err, &httpErr) {
-				http.Error(w, httpErr.Message, httpErr.StatusCode)
+				httpx.WriteJsonCtx(r.Context(), w, httpErr.StatusCode, utils.Error(httpErr.StatusCode, httpErr.Message))
 				return
 			}
 
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpx.WriteJsonCtx(r.Context(), w, http.StatusInternalServerError, utils.Error(http.StatusInternalServerError, err.Error()))
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			httpx.OkJsonCtx(r.Context(), w, utils.Success(resp))
 		}
 	}
 }
