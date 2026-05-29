@@ -25,6 +25,4 @@ Redis:
   DB: 0
 Short:
   BaseURL: http://127.0.0.1:8888
-  CodeLength: 4
-  ExpairedDays: 0
   Provider: mysql_auto_increment

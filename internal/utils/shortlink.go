@@ -6,9 +6,6 @@ import (
 	"errors"
 	"net/url"
 	"strings"
-	"time"
-
-	"mysurl1/internal/config"
 )
 
 func ValidateLongURL(raw string) error {
@@ -39,15 +36,6 @@ func NormalizeOriginalURL(raw string) string {
 func HashOriginalURL(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
-}
-
-func BuildExpiresAt(cfg config.ShortConf, now time.Time) *time.Time {
-	if cfg.ExpairedDays <= 0 {
-		return nil
-	}
-
-	expiresAt := now.AddDate(0, 0, cfg.ExpairedDays)
-	return &expiresAt
 }
 
 func BuildShortURL(baseURL, shortCode string) string {

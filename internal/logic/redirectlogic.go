@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
@@ -31,6 +30,9 @@ func NewRedirectLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Redirect
 	}
 }
 
+// Redirect validates the short code, loads the active short-link record,
+// increments its visit count, and returns the target URL for the handler to
+// issue the HTTP redirect.
 func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 	if l.svcCtx.DB == nil {
 		return "", utils.InternalError("mysql is not configured")
@@ -44,7 +46,7 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		return "", utils.BadRequest("code is required")
 	}
 
-	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByCode(l.ctx, code, time.Now())
+	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByCode(l.ctx, code)
 	if err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
 			return "", utils.NotFound("short link not found")

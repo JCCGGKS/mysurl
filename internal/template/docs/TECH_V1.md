@@ -72,8 +72,8 @@
 | `original_url` | varchar(2048) | 原始长链 |
 | `url_hash` | char(64) | `original_url` 去除尾部 `/` 后字符串的哈希值，用于查重 |
 | `visit_count` | bigint unsigned | 访问次数，默认 `0` |
+| `expires_at` | datetime | 可空，过期时间预留字段，V1 不启用 |
 | `status` | tinyint unsigned | 状态，默认 `1` |
-| `expires_at` | datetime | 过期时间，可空 |
 | `created_at` | datetime | 创建时间 |
 | `updated_at` | datetime | 更新时间 |
 | `deleted_at` | datetime | 可空，软删除预留字段 |
@@ -89,14 +89,14 @@
 - 相同长链以 `original_url` 去除尾部 `/` 后字符串一致为准
 - `original_url` 不是数据库唯一键
 - `url_hash` 仅作为查重辅助键，不作为最终唯一真值
+- `expires_at` 仅保留表结构，不参与 V1 创建和跳转逻辑
 - 若 `url_hash` 相同但长链字符串不同，视为哈希冲突，继续生成新的 `short_code`
 
 ## 5. 运行时约束
 
 - `long_url` 为空返回 `400`
 - `long_url` 非法返回 `400`
-- `Short.ExpairedDays=0` 表示永久有效
 - 短码冲突时重新生成并重试写入
 - 成功跳转后 `visit_count` 累加 `1`
-- 查询条件：`deleted_at IS NULL`，且 `expires_at IS NULL OR expires_at > 当前时间`
+- 查询条件：`deleted_at IS NULL`
 - 数据库异常返回 `500`

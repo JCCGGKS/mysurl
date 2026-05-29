@@ -6,7 +6,6 @@ package logic
 import (
 	"context"
 	"strings"
-	"time"
 
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
@@ -29,6 +28,9 @@ func NewCreateLinkLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 	}
 }
 
+// CreateLink validates the input URL, reuses an existing short link when the
+// normalized URL already exists, otherwise generates a short code, inserts the
+// mapping, and returns the final short-link payload.
 func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.CreateLinkResponse, err error) {
 	if l.svcCtx.DB == nil {
 		return nil, utils.InternalError("mysql is not configured")
@@ -47,9 +49,8 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	originalURL := strings.TrimSpace(req.LongURL)
 	normalizedURL := utils.NormalizeOriginalURL(originalURL)
 	urlHash := utils.HashOriginalURL(normalizedURL)
-	now := time.Now()
 
-	candidates, err := l.svcCtx.ShortLinkDAO.FindAvailableByHash(l.ctx, urlHash, now)
+	candidates, err := l.svcCtx.ShortLinkDAO.FindAvailableByHash(l.ctx, urlHash)
 	if err != nil {
 		l.Errorf("query short links by hash failed: %v", err)
 		return nil, utils.InternalError("query short links failed")
@@ -61,14 +62,13 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		}
 	}
 
-	expiresAt := utils.BuildExpiresAt(l.svcCtx.Config.Short, now)
 	shortCode, genErr := l.svcCtx.GenerateShortCode(l.ctx)
 	if genErr != nil {
 		l.Errorf("generate short code failed: %v", genErr)
 		return nil, utils.InternalError("generate short code failed")
 	}
 
-	if err := l.svcCtx.ShortLinkDAO.Insert(l.ctx, shortCode, originalURL, urlHash, expiresAt); err != nil {
+	if err := l.svcCtx.ShortLinkDAO.Insert(l.ctx, shortCode, originalURL, urlHash); err != nil {
 		l.Errorf("insert short link failed: %v", err)
 		return nil, utils.InternalError("create short link failed")
 	}
