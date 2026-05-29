@@ -23,3 +23,7 @@ Redis:
   Port: 6379
   Password: ""
   DB: 0
+Short:
+  BaseURL: http://127.0.0.1:8888
+  CodeLength: 4
+  ExpairedDays: 0

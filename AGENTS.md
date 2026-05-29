@@ -16,6 +16,8 @@ Because the project is still scaffold-level, some commands may report "no packag
 ## Coding Style & Naming Conventions
 Follow idiomatic Go. Use tabs for indentation and let `gofmt` own formatting. Keep package names short and lowercase, for example `internal/store` or `pkg/shorturl`. Exported identifiers use `CamelCase`; unexported identifiers use `camelCase`. File names should be lowercase and descriptive, such as `handler.go`, `service_test.go`, or `memory_store.go`.
 
+For schema and API state modeling, do not use a type's zero value as a valid business status. Choose explicit non-zero status values, document the mapping in the PRD, and keep SQL defaults aligned with that mapping.
+
 ## Testing Guidelines
 Write tests with Go’s built-in `testing` package in `*_test.go` files. Prefer table-driven tests for handlers, parsers, and validation logic. Keep tests close to the code they cover, and name them `Test<FunctionOrBehavior>`. Run `go test ./...` locally before committing; use `go test -cover ./...` when changing core logic.
 

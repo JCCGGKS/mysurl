@@ -10,6 +10,7 @@ type Config struct {
 	Stat  StatConf  `json:",optional"`
 	MySQL MySQLConf `json:",optional"`
 	Redis RedisConf `json:",optional"`
+	Short ShortConf `json:",optional"`
 }
 
 type StatConf struct {
@@ -30,4 +31,10 @@ type RedisConf struct {
 	Port     int    `json:",optional"`
 	Password string `json:",optional"`
 	DB       int    `json:",optional"`
+}
+
+type ShortConf struct {
+	BaseURL      string `json:",optional"`
+	CodeLength   int    `json:",default=4"`
+	ExpairedDays int    `json:",default=0"`
 }
