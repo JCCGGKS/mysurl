@@ -65,7 +65,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, originalURL, urlHash)
 	if genErr != nil {
 		l.Errorf("generate short code failed: %v", genErr)
-		return nil, utils.InternalError("generate short code failed")
+		return nil, utils.InternalError("generate short code failed: " + genErr.Error())
 	}
 
 	return l.buildCreateLinkResponse(shortCode, originalURL), nil

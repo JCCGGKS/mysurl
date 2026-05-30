@@ -18,6 +18,8 @@ Follow idiomatic Go. Use tabs for indentation and let `gofmt` own formatting. Ke
 
 For schema and API state modeling, do not use a type's zero value as a valid business status. Choose explicit non-zero status values, document the mapping in the PRD, and keep SQL defaults aligned with that mapping.
 
+If a method returns an `error`, the caller must receive and explicitly handle that `error` immediately. Do not ignore returned `error` values, do not rely on later implicit handling, and do not continue using stale `err` variables from earlier calls.
+
 ## Testing Guidelines
 Write tests with Go’s built-in `testing` package in `*_test.go` files. Prefer table-driven tests for handlers, parsers, and validation logic. Keep tests close to the code they cover, and name them `Test<FunctionOrBehavior>`. Run `go test ./...` locally before committing; use `go test -cover ./...` when changing core logic.
 
