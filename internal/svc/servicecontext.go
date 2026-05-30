@@ -42,13 +42,17 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return serviceContext
 }
 
-func mustNewCodeManager(c config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) *codestrategy.CodeManager {
-	manager := codestrategy.NewCodeManager(c.Provider)
+func mustNewCodeManager(short config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) *codestrategy.CodeManager {
+	manager := codestrategy.NewCodeManager(short.Provider)
 	manager.Register(codestrategy.NewMySQLAutoIncrementGenerator(shortLinkDAO))
 	manager.Register(codestrategy.NewRedisIncrGenerator(serviceContext.Redis, shortLinkDAO))
-	manager.Register(codestrategy.NewSnowflakeGenerator())
+	snowflakeGenerator, err := mustNewSnowflakeGenerator(short, shortLinkDAO)
+	if err != nil {
+		panic(err)
+	}
+	manager.Register(snowflakeGenerator)
 
-	if _, err := manager.Get(c.Provider); err != nil && c.Provider != "" {
+	if _, err := manager.Get(short.Provider); err != nil && short.Provider != "" {
 		panic(err)
 	}
 	if _, err := manager.Get(""); err != nil {
@@ -56,6 +60,19 @@ func mustNewCodeManager(c config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) *cod
 	}
 
 	return manager
+}
+
+func mustNewSnowflakeGenerator(short config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) (*codestrategy.SnowflakeGenerator, error) {
+	if short.Provider == codestrategy.ProviderSnowflake && short.Snowflake.WorkerID == 0 {
+		return nil, fmt.Errorf("short.snowflake.workerid is required when provider is snowflake")
+	}
+
+	workerID := short.Snowflake.WorkerID
+	if workerID == 0 {
+		workerID = 1
+	}
+
+	return codestrategy.NewSnowflakeGenerator(workerID, shortLinkDAO)
 }
 
 func newMySQL(c config.MySQLConf) sqlx.SqlConn {

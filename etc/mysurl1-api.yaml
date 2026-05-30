@@ -26,4 +26,7 @@ Redis:
 Short:
   BaseURL: http://127.0.0.1:8888
   # Provider: mysql_auto_increment
-  Provider: redis_incr
+  Provider: snowflake
+  # Provider: redis_incr
+  Snowflake:
+    WorkerID: 1

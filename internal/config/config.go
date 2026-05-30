@@ -34,6 +34,11 @@ type RedisConf struct {
 }
 
 type ShortConf struct {
-	BaseURL    string `json:",optional"`
-	Provider   string `json:",default=mysql_auto_increment,options=mysql_auto_increment|redis_incr|snowflake"`
+	BaseURL   string        `json:",optional"`
+	Provider  string        `json:",default=mysql_auto_increment,options=mysql_auto_increment|redis_incr|snowflake"`
+	Snowflake SnowflakeConf `json:",optional"`
+}
+
+type SnowflakeConf struct {
+	WorkerID int64 `json:",optional"`
 }

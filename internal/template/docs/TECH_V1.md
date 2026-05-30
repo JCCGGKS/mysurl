@@ -48,6 +48,8 @@
 ### 3.3 snowflake
 
 - 方式：使用本地雪花算法生成 ID，转 Base62 生成短码
+- 实现：使用 `bwmarrin/snowflake` 生成全局唯一 ID
+- 配置：通过 `Short.Snowflake.WorkerID` 指定节点号
 - 优点：不依赖外部发号器，性能高
 - 缺点：需要处理机器号、时钟回拨等问题
 
@@ -62,6 +64,7 @@
 - `CodeManager` 负责按配置选择具体 provider，并管理 provider 与生成器实现的映射关系
 - 业务层仅依赖统一生成入口，不直接依赖具体生成方案
 - 具体发号逻辑仍由各 provider 自己实现，便于后续扩展和替换
+- `snowflake` 方案依赖 `Short.Snowflake.WorkerID` 配置节点号
 - 通过集中管理策略注册与选择逻辑，降低业务层与具体实现的耦合
 
 ## 4. 数据模型
