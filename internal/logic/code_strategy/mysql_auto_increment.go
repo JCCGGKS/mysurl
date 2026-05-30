@@ -19,6 +19,10 @@ func (g *MySQLAutoIncrementGenerator) Provider() string {
 	return ProviderMySQLAutoIncrement
 }
 
-func (g *MySQLAutoIncrementGenerator) NextCode(_ context.Context) (string, error) {
-	return "", errors.New("mysql auto increment generator is not implemented")
+func (g *MySQLAutoIncrementGenerator) NextCode(ctx context.Context, originalURL, urlHash string) (string, error) {
+	if g == nil || g.dao == nil {
+		return "", errors.New("mysql auto increment generator dao is not configured")
+	}
+
+	return g.dao.CreateWithAutoIncrement(ctx, originalURL, urlHash)
 }

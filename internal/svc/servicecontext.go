@@ -45,7 +45,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 func mustNewCodeManager(c config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) *codestrategy.CodeManager {
 	manager := codestrategy.NewCodeManager(c.Provider)
 	manager.Register(codestrategy.NewMySQLAutoIncrementGenerator(shortLinkDAO))
-	manager.Register(codestrategy.NewRedisIncrGenerator(serviceContext.Redis))
+	manager.Register(codestrategy.NewRedisIncrGenerator(serviceContext.Redis, shortLinkDAO))
 	manager.Register(codestrategy.NewSnowflakeGenerator())
 
 	if _, err := manager.Get(c.Provider); err != nil && c.Provider != "" {

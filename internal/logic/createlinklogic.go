@@ -62,15 +62,10 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		}
 	}
 
-	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx)
+	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, originalURL, urlHash)
 	if genErr != nil {
 		l.Errorf("generate short code failed: %v", genErr)
 		return nil, utils.InternalError("generate short code failed")
-	}
-
-	if err := l.svcCtx.ShortLinkDAO.Insert(l.ctx, shortCode, originalURL, urlHash); err != nil {
-		l.Errorf("insert short link failed: %v", err)
-		return nil, utils.InternalError("create short link failed")
 	}
 
 	return l.buildCreateLinkResponse(shortCode, originalURL), nil

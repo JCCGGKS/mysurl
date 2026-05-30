@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
+
+const base62Alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func ValidateLongURL(raw string) error {
 	if strings.TrimSpace(raw) == "" {
@@ -36,6 +39,43 @@ func NormalizeOriginalURL(raw string) string {
 func HashOriginalURL(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
+}
+
+func EncodeBase62(value uint64) string {
+	if value == 0 {
+		return string(base62Alphabet[0])
+	}
+
+	var encoded []byte
+	for value > 0 {
+		remainder := value % uint64(len(base62Alphabet))
+		encoded = append(encoded, base62Alphabet[remainder])
+		value /= uint64(len(base62Alphabet))
+	}
+
+	for left, right := 0, len(encoded)-1; left < right; left, right = left+1, right-1 {
+		encoded[left], encoded[right] = encoded[right], encoded[left]
+	}
+
+	return string(encoded)
+}
+
+func DecodeBase62(raw string) (uint64, error) {
+	if raw == "" {
+		return 0, errors.New("base62 string is empty")
+	}
+
+	var value uint64
+	for _, ch := range raw {
+		index := strings.IndexRune(base62Alphabet, ch)
+		if index < 0 {
+			return 0, fmt.Errorf("invalid base62 character: %q", ch)
+		}
+
+		value = value*uint64(len(base62Alphabet)) + uint64(index)
+	}
+
+	return value, nil
 }
 
 func BuildShortURL(baseURL, shortCode string) string {

@@ -3,8 +3,10 @@ package dao
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"mysurl1/internal/model"
+	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -101,6 +103,65 @@ INSERT INTO short_links (
 
 	_, err := d.conn.ExecCtx(ctx, query, shortCode, originalURL, urlHash)
 	return err
+}
+
+// CreateWithShortCode inserts a short link row with the provided short code.
+func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, shortCode, originalURL, urlHash string) (string, error) {
+	if d == nil || d.conn == nil {
+		return "", fmt.Errorf("short link dao is not configured")
+	}
+
+	if err := d.Insert(ctx, shortCode, originalURL, urlHash); err != nil {
+		return "", err
+	}
+
+	return shortCode, nil
+}
+
+// CreateWithAutoIncrement inserts a short link row first, then derives and updates
+// the short code from the generated auto increment id in one transaction.
+func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, originalURL, urlHash string) (string, error) {
+	if d == nil || d.conn == nil {
+		return "", fmt.Errorf("short link dao is not configured")
+	}
+
+	var shortCode string
+
+	err := d.conn.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
+		insertQuery := `
+INSERT INTO short_links (
+	short_code,
+	original_url,
+	url_hash
+) VALUES (NULL, ?, ?)
+`
+
+		result, err := session.ExecCtx(ctx, insertQuery, originalURL, urlHash)
+		if err != nil {
+			return err
+		}
+
+		id, err := result.LastInsertId()
+		if err != nil {
+			return err
+		}
+		if id <= 0 {
+			return fmt.Errorf("invalid short link id: %d", id)
+		}
+
+		shortCode = utils.EncodeBase62(uint64(id))
+		updateQuery := "UPDATE short_links SET short_code = ? WHERE id = ?"
+		if _, err := session.ExecCtx(ctx, updateQuery, shortCode, id); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return shortCode, nil
 }
 
 // IncrementVisitCount increases the visit counter for a short link record.

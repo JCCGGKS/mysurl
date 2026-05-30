@@ -21,7 +21,6 @@
 4. 按 `url_hash` 查询候选记录
 5. 若存在相同规范化长链，则直接返回已有短链
 6. 若不存在，则生成新的 `short_code`
-7. 写入 `{short_code, original_url, url_hash}`
 
 短码规则：
 
@@ -38,7 +37,7 @@
 
 - 方式：使用 MySQL 自增 ID，转 Base62 生成短码
 - 优点：实现简单，ID 单调递增
-- 缺点：依赖数据库发号能力；若先插入拿 ID，再回写 `short_code`，链路较重
+- 缺点：依赖数据库发号能力；先插入拿 ID，再回写 `short_code`，链路较重
 
 ### 3.2 redis-incr
 
@@ -52,14 +51,18 @@
 - 优点：不依赖外部发号器，性能高
 - 缺点：需要处理机器号、时钟回拨等问题
 
-### 3.4 策略模式
+### 3.4 code_manager-策略模式
 
 - 三种方案同时实现：`mysql-auto_increment`、`redis-incr`、`snowflake`
 - 运行时通过 `Short.Provider` 选择具体生成方案
 - 配置值：`mysql_auto_increment`、`redis_incr`、`snowflake`
 - 默认值：`mysql_auto_increment`
 - 设计模式采用策略模式
-- 通过工厂函数按配置装配具体策略
+- 引入统一的 `CodeManager` 作为短码生成策略的管理入口
+- `CodeManager` 负责按配置选择具体 provider，并管理 provider 与生成器实现的映射关系
+- 业务层仅依赖统一生成入口，不直接依赖具体生成方案
+- 具体发号逻辑仍由各 provider 自己实现，便于后续扩展和替换
+- 通过集中管理策略注册与选择逻辑，降低业务层与具体实现的耦合
 
 ## 4. 数据模型
 

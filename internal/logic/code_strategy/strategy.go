@@ -14,7 +14,7 @@ const (
 
 type CodeGenerator interface {
 	Provider() string
-	NextCode(ctx context.Context) (string, error)
+	NextCode(ctx context.Context, originalURL, urlHash string) (string, error)
 }
 
 type CodeManager struct {
@@ -61,7 +61,15 @@ func (m *CodeManager) Get(provider string) (CodeGenerator, error) {
 	return generator, nil
 }
 
-func (m *CodeManager) GenerateShortCode(ctx context.Context) (string, error) {
+func (m *CodeManager) Provider() string {
+	if m == nil || m.provider == "" {
+		return ProviderMySQLAutoIncrement
+	}
+
+	return m.provider
+}
+
+func (m *CodeManager) GenerateShortCode(ctx context.Context, originalURL, urlHash string) (string, error) {
 	if m == nil {
 		return "", fmt.Errorf("code manager is nil")
 	}
@@ -71,5 +79,5 @@ func (m *CodeManager) GenerateShortCode(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return generator.NextCode(ctx)
+	return generator.NextCode(ctx, originalURL, urlHash)
 }
