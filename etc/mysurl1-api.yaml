@@ -4,11 +4,11 @@ Port: 8888
 Log:
   Stat: false
 DevServer:
-  Enabled: true
+  Enabled: false
   Host: 0.0.0.0
   Port: 6060
-  EnableMetrics: true
-  EnablePprof: true
+  EnableMetrics: false
+  EnablePprof: false
 Stat:
   DisableLog: true
   DisableSampler: true
@@ -25,4 +25,5 @@ Redis:
   DB: 0
 Short:
   BaseURL: http://127.0.0.1:8888
-  Provider: mysql_auto_increment
+  # Provider: mysql_auto_increment
+  Provider: redis_incr

@@ -24,13 +24,7 @@ func NewShortLinkDAO(conn sqlx.SqlConn) *ShortLinkDAO {
 func (d *ShortLinkDAO) FindAvailableByHash(ctx context.Context, urlHash string) ([]model.ShortLink, error) {
 	var records []model.ShortLink
 	query := `
-SELECT
-	id,
-	short_code,
-	original_url,
-	url_hash,
-	visit_count,
-	status
+SELECT * 
 FROM short_links
 WHERE url_hash = ?
   AND deleted_at IS NULL
@@ -51,13 +45,7 @@ WHERE url_hash = ?
 func (d *ShortLinkDAO) FindAvailableByCode(ctx context.Context, code string) (*model.ShortLink, error) {
 	var record model.ShortLink
 	query := `
-SELECT
-	id,
-	short_code,
-	original_url,
-	url_hash,
-	visit_count,
-	status
+SELECT * 
 FROM short_links
 WHERE short_code = ?
   AND deleted_at IS NULL
@@ -69,26 +57,6 @@ LIMIT 1
 	}
 
 	return &record, nil
-}
-
-// ExistsByCode checks whether a short code already exists in storage.
-func (d *ShortLinkDAO) ExistsByCode(ctx context.Context, code string) (bool, error) {
-	var result struct {
-		Cnt int64 `db:"cnt"`
-	}
-
-	query := `
-SELECT COUNT(1) AS cnt
-FROM short_links
-WHERE short_code = ?
-LIMIT 1
-`
-
-	if err := d.conn.QueryRowCtx(ctx, &result, query, code); err != nil {
-		return false, err
-	}
-
-	return result.Cnt > 0, nil
 }
 
 // Insert creates a new short link record with the default active status.

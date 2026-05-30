@@ -53,7 +53,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	candidates, err := l.svcCtx.ShortLinkDAO.FindAvailableByHash(l.ctx, urlHash)
 	if err != nil {
 		l.Errorf("query short links by hash failed: %v", err)
-		return nil, utils.InternalError("query short links failed")
+		return nil, utils.InternalError("query short links failed:" + err.Error())
 	}
 
 	for _, candidate := range candidates {

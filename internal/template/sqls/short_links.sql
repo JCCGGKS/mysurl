@@ -1,6 +1,6 @@
 CREATE TABLE `short_links` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `short_code` varchar(16) NOT NULL COMMENT '短码',
+  `short_code` varchar(16) DEFAULT NULL COMMENT '短码',
   `original_url` varchar(2048) NOT NULL COMMENT '原始长链',
   `url_hash` char(64) NOT NULL COMMENT 'original_url去除尾部/后的字符串哈希值, 用于查重',
   `visit_count` bigint unsigned NOT NULL DEFAULT 0 COMMENT '访问次数',

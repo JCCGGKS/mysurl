@@ -53,7 +53,7 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		}
 
 		l.Errorf("query short link by code failed: %v", err)
-		return "", utils.InternalError("query short link failed")
+		return "", utils.InternalError("query short link failed: "+ err.Error())
 	}
 
 	if err := l.svcCtx.ShortLinkDAO.IncrementVisitCount(l.ctx, record.ID); err != nil {
