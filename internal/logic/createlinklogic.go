@@ -38,8 +38,8 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	if l.svcCtx.ShortLinkDAO == nil {
 		return nil, utils.InternalError("short link dao is not configured")
 	}
-	if l.svcCtx.GenerateShortCode == nil {
-		return nil, utils.InternalError("short code generator is not configured")
+	if l.svcCtx.CodeManager == nil {
+		return nil, utils.InternalError("short code manager is not configured")
 	}
 
 	if err := utils.ValidateLongURL(req.LongURL); err != nil {
@@ -62,7 +62,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		}
 	}
 
-	shortCode, genErr := l.svcCtx.GenerateShortCode(l.ctx)
+	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx)
 	if genErr != nil {
 		l.Errorf("generate short code failed: %v", genErr)
 		return nil, utils.InternalError("generate short code failed")

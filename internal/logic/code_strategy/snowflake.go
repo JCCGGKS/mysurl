@@ -7,12 +7,14 @@ import (
 
 type SnowflakeGenerator struct{}
 
-
+func NewSnowflakeGenerator() *SnowflakeGenerator {
+	return &SnowflakeGenerator{}
+}
 
 func (g *SnowflakeGenerator) Provider() string {
 	return ProviderSnowflake
 }
 
-func (g *SnowflakeGenerator) NextCode(_ context.Context, _ NextCodeInput) (string, error) {
+func (g *SnowflakeGenerator) NextCode(_ context.Context) (string, error) {
 	return "", errors.New("snowflake generator is not implemented")
 }

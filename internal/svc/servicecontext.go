@@ -21,11 +21,11 @@ var (
 )
 
 type ServiceContext struct {
-	Config            config.Config
-	DB                sqlx.SqlConn
-	Redis             *goredis.Client
-	ShortLinkDAO      *dao.ShortLinkDAO
-	GenerateShortCode codestrategy.GenerateShortCodeFunc
+	Config       config.Config
+	DB           sqlx.SqlConn
+	Redis        *goredis.Client
+	ShortLinkDAO *dao.ShortLinkDAO
+	CodeManager  *codestrategy.CodeManager
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -36,21 +36,26 @@ func NewServiceContext(c config.Config) *ServiceContext {
 			Redis:  newRedis(c.Redis),
 		}
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
-		serviceContext.GenerateShortCode = mustNewGenerateShortCode(c.Short, serviceContext.ShortLinkDAO)
+		serviceContext.CodeManager = mustNewCodeManager(c.Short, serviceContext.ShortLinkDAO)
 	})
 
 	return serviceContext
 }
 
-func mustNewGenerateShortCode(c config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) codestrategy.GenerateShortCodeFunc {
-	generator, err := codestrategy.NewCodeGenService(c)
-	if err != nil {
+func mustNewCodeManager(c config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) *codestrategy.CodeManager {
+	manager := codestrategy.NewCodeManager(c.Provider)
+	manager.Register(codestrategy.NewMySQLAutoIncrementGenerator(shortLinkDAO))
+	manager.Register(codestrategy.NewRedisIncrGenerator(serviceContext.Redis))
+	manager.Register(codestrategy.NewSnowflakeGenerator())
+
+	if _, err := manager.Get(c.Provider); err != nil && c.Provider != "" {
+		panic(err)
+	}
+	if _, err := manager.Get(""); err != nil {
 		panic(err)
 	}
 
-	return codestrategy.BuildGenerateShortCodeFunc(generator, codestrategy.NextCodeInput{
-		DAO: shortLinkDAO,
-	})
+	return manager
 }
 
 func newMySQL(c config.MySQLConf) sqlx.SqlConn {

@@ -3,9 +3,7 @@ package codestrategy
 import (
 	"context"
 	"fmt"
-
-	"mysurl1/internal/config"
-	"mysurl1/internal/dao"
+	"sync"
 )
 
 const (
@@ -14,25 +12,48 @@ const (
 	ProviderSnowflake          = "snowflake"
 )
 
-type NextCodeInput struct {
-	DAO *dao.ShortLinkDAO
-}
-
 type CodeGenerator interface {
 	Provider() string
-	NextCode(ctx context.Context, input NextCodeInput) (string, error)
+	NextCode(ctx context.Context) (string, error)
 }
 
-type GenerateShortCodeFunc func(ctx context.Context) (string, error)
-
-var strategyRegistry = map[string]CodeGenerator{
-	ProviderMySQLAutoIncrement: &MySQLAutoIncrementGenerator{},
-	ProviderRedisIncr:          &RedisIncrGenerator{},
-	ProviderSnowflake:          &SnowflakeGenerator{},
+type CodeManager struct {
+	provider   string
+	mu         sync.RWMutex
+	generators map[string]CodeGenerator
 }
 
-func NewCodeGenerator(provider string) (CodeGenerator, error) {
-	generator, ok := strategyRegistry[provider]
+func NewCodeManager(provider string) *CodeManager {
+	if provider == "" {
+		provider = ProviderMySQLAutoIncrement
+	}
+
+	return &CodeManager{
+		provider:   provider,
+		generators: make(map[string]CodeGenerator),
+	}
+}
+
+func (m *CodeManager) Register(generator CodeGenerator) {
+	if generator == nil {
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.generators[generator.Provider()] = generator
+}
+
+func (m *CodeManager) Get(provider string) (CodeGenerator, error) {
+	if provider == "" {
+		provider = ProviderMySQLAutoIncrement
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	generator, ok := m.generators[provider]
 	if !ok {
 		return nil, fmt.Errorf("unsupported short code provider: %s", provider)
 	}
@@ -40,30 +61,15 @@ func NewCodeGenerator(provider string) (CodeGenerator, error) {
 	return generator, nil
 }
 
-func NewCodeGenService(cfg config.ShortConf) (CodeGenerator, error) {
-	provider := cfg.Provider
-	if provider == "" {
-		provider = ProviderMySQLAutoIncrement
+func (m *CodeManager) GenerateShortCode(ctx context.Context) (string, error) {
+	if m == nil {
+		return "", fmt.Errorf("code manager is nil")
 	}
 
-	generator, err := NewCodeGenerator(provider)
+	generator, err := m.Get(m.provider)
 	if err != nil {
-		return nil, fmt.Errorf("init short code generator failed: %w", err)
+		return "", err
 	}
 
-	return generator, nil
-}
-
-func GenerateShortCode(ctx context.Context, generator CodeGenerator, input NextCodeInput) (string, error) {
-	if generator == nil {
-		return "", fmt.Errorf("short code generator is nil")
-	}
-
-	return generator.NextCode(ctx, input)
-}
-
-func BuildGenerateShortCodeFunc(generator CodeGenerator, input NextCodeInput) GenerateShortCodeFunc {
-	return func(ctx context.Context) (string, error) {
-		return GenerateShortCode(ctx, generator, input)
-	}
+	return generator.NextCode(ctx)
 }
