@@ -39,9 +39,7 @@
 - 位结构：默认 `1bit符号位 + 41bit时间 + 10bit机器 + 12bit序列号`，对应源码里的 `NodeBits = 10`、`StepBits = 12`
 - 机器号：手动分配，默认范围 `0~1023`，由 `NewNode(node int64)` 校验
 - 回拨策略：当前项目使用的 `v0.3.0` 实现并没有在 `Generate()` 中显式写出“检测回拨后直接 panic”的分支；它基于 `time.Since(n.epoch)` 计算相对时间，同毫秒内序列号递增，序列号用尽后等待下一毫秒
-
-
-- 源码位置：<https://github.com/bwmarrin/snowflake/blob/master/snowflake.go>
+- 源码位置：当前项目锁定版本 `v0.3.0` 的源码文件为 <https://github.com/bwmarrin/snowflake/blob/v0.3.0/snowflake.go>
 - 重点关注：`NodeBits`、`StepBits` 的默认值，`NewNode()` 对节点号范围的校验，`Generate()` 中同毫秒序列递增和序列耗尽后的等待逻辑
 - 核心特点：零依赖、接口简单、社区常见、默认位分配接近经典 Snowflake
 - 适用场景：通用业务、传统微服务、需要简单稳定本地发号的线上系统
@@ -52,8 +50,6 @@
 - 位结构：官方源码明确为 `39bit时间(单位 10ms) + 8bit序列号 + 16bit机器号`
 - 机器号：支持通过 `Settings.MachineID` 自定义；未配置时默认取私网 IPv4 地址的低 16 位，`CheckMachineID` 可额外校验唯一性
 - 回拨策略：`NextID()` 通过比较 `elapsedTime` 与当前时间片推进发号；当时间片未前进且序列耗尽时，会推进 `elapsedTime` 并 `sleep` 到对应时间片，不是旧文档里那种固定“10ms 阈值报错”规则
-
-
 - 源码位置：<https://github.com/sony/sonyflake/blob/master/sonyflake.go>
 - 重点关注：默认位分配不是经典 `41/10/12`，`Settings` 中机器号获取与校验的扩展方式，`NextID()` 的时间推进和序列控制逻辑
 - 核心特点：可配置性更强，适合结合部署环境定制机器号获取方式
@@ -65,9 +61,7 @@
 - 位结构：旧文档引用的是 InfluxDB 历史代码路径中的业务内嵌 Snowflake 生成器；当前官方主仓库 `main` 分支已无法直接按原路径定位到该实现，因此不能继续把位分配写死成固定结论
 - 机器号：依赖对应历史版本实现与业务配置，不属于像 `bwmarrin`、`sonyflake` 这样稳定暴露的独立库接口
 - 回拨策略：历史实现通常把时钟倒退视为错误返回，而不是静默吞掉；但具体行为仍应以实际引用的 InfluxDB 版本源码为准
-
-
-- 源码位置：旧文档引用过 `influxdb/pkg/snowflake/generator.go`，但当前官方 `main` 分支已无法直接定位该路径；如需使用，必须先确认目标 InfluxDB 历史版本
+- 源码位置：历史路径是 `github.com/influxdata/influxdb/pkg/snowflake/generator.go`；当前官方仓库主线已切到 InfluxDB 3，`main` 分支无法直接定位该文件，如需追溯需切到对应历史分支或版本标签
 - 重点关注：具体版本里的位分配定义，时钟回退时的错误处理方式，序列耗尽时如何推进时间片
 - 核心特点：更偏工程内嵌实现，适合参考其源码理解雪花生成器在实际项目中的写法
 - 适用场景：学习业务工程内雪花实现，或处于相关技术栈上下文中时参考
@@ -78,9 +72,7 @@
 - 位结构：官方实现的原始拼接是 `时间戳 << (serverIdLength + counterLength) | serverId << counterLength | counter`，随后再经过一次 `chaos()` 位重排；因此它不是文档里适合直接写成单一“41/10/12”口径的实现
 - 机器号：使用 `serverId`，由调用方提供并参与最终位拼接
 - 回拨策略：官方实现采用等待补齐时间片的思路，例如 `toNextMillisecond()` 计算需要睡眠到下一毫秒，而不是直接报错退出
-
-
-- 源码位置：<https://github.com/ppzz/golang-snowflake-id/blob/master/internal.go>
+- 源码位置：仓库根目录 `internal.go`
 - 重点关注：时间小于上次时间时的处理方式，节点号、序列号和时间片的拼接逻辑，以及 `chaos()` 位重排
 - 核心特点：实现轻量、代码直观、上手成本低
 - 适用场景：小型内部系统、学习雪花算法实现、对接入复杂度要求低的服务
@@ -91,11 +83,9 @@
 - 位结构：官方默认选项是 `WorkerIdBitLength = 6`、`SeqBitLength = 6`，并要求 `WorkerIdBitLength + SeqBitLength <= 22`；也就是说它的机器位和序列位是可配置的，不是固定单一位宽
 - 机器号：使用 `WorkerId`，必须由外部设置，最大值取决于 `2^WorkerIdBitLength - 1`
 - 回拨策略：官方默认 `Method = 1` 使用漂移算法；源码里为回拨预留了序列号低位，时间回退时走 `CalcTurnBackId()` 和回拨次序控制，不是简单“报错”或单纯 `sleep` 等待
-
-
 - 源码位置：
-  - <https://github.com/yitter/idgenerator-go/blob/main/idgen/IdGeneratorOptions.go>
-  - <https://github.com/yitter/idgenerator-go/blob/main/idgen/SnowWorkerM1.go>
+  - 真实仓库为 `github.com/yitter/IdGenerator`，Go 配置定义在 <https://github.com/yitter/IdGenerator/blob/master/Go/source/idgen/IdGeneratorOptions.go>
+  - 回拨与发号主逻辑在 <https://github.com/yitter/IdGenerator/blob/master/Go/source/idgen/SnowWorkerM1.go>
 - 重点关注：参数配置项、回拨处理相关增强策略、高并发场景下的序列控制方式
 - 核心特点：配置项较多，更偏增强型发号器，强调复杂场景下的可用性设计
 - 适用场景：对可用性、回拨处理策略和工程增强能力要求更高的系统
