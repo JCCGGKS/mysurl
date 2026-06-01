@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"sync/atomic"
 
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const bloomNormalizedURLKey = "shortlink:bloom:normalized_long_url"
@@ -17,7 +20,9 @@ type ShortToLongCacheValue struct {
 }
 
 type ShortLinkCache struct {
-	redis *goredis.Client
+	redis         *goredis.Client
+	bloomDisabled atomic.Bool
+	bloomWarned   atomic.Bool
 }
 
 func NewShortLinkCache(redis *goredis.Client) *ShortLinkCache {
@@ -86,9 +91,16 @@ func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) 
 	if c == nil || c.redis == nil {
 		return true, nil
 	}
+	if c.bloomDisabled.Load() {
+		return true, nil
+	}
 
 	result, err := c.redis.Do(ctx, "BF.EXISTS", bloomNormalizedURLKey, normalizedURL).Int64()
 	if err != nil {
+		if c.handleBloomUnavailable(err) {
+			return true, nil
+		}
+
 		return false, err
 	}
 
@@ -99,8 +111,19 @@ func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) err
 	if c == nil || c.redis == nil {
 		return nil
 	}
+	if c.bloomDisabled.Load() {
+		return nil
+	}
 
-	return c.redis.Do(ctx, "BF.ADD", bloomNormalizedURLKey, normalizedURL).Err()
+	err := c.redis.Do(ctx, "BF.ADD", bloomNormalizedURLKey, normalizedURL).Err()
+	if err == nil {
+		return nil
+	}
+	if c.handleBloomUnavailable(err) {
+		return nil
+	}
+
+	return err
 }
 
 func shortToLongCacheKey(shortCode string) string {
@@ -109,4 +132,33 @@ func shortToLongCacheKey(shortCode string) string {
 
 func longToShortCacheKey(normalizedURL string) string {
 	return fmt.Sprintf("shortlink:long:%s", normalizedURL)
+}
+
+func (c *ShortLinkCache) handleBloomUnavailable(err error) bool {
+	if !isBloomUnavailableError(err) {
+		return false
+	}
+
+	c.bloomDisabled.Store(true)
+	if c.bloomWarned.CompareAndSwap(false, true) {
+		logx.Errorf("redis bloom unavailable, fallback to cache+mysql path: %v", err)
+	}
+
+	return true
+}
+
+func isBloomUnavailableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "unknown command") && strings.Contains(message, "bf.") {
+		return true
+	}
+	if strings.Contains(message, "module") && strings.Contains(message, "not loaded") {
+		return true
+	}
+
+	return false
 }

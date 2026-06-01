@@ -8,6 +8,7 @@
 - 访问短链并返回 `302` 跳转
 - 基于 MySQL 持久化短链映射
 - 支持 `mysql_auto_increment`、`redis_incr`、`snowflake` 三种短码生成策略
+- V2 接口链路已接入 Redis 精确缓存，并支持 RedisBloom 缺失时自动降级
 
 
 ## 运行依赖
@@ -20,6 +21,7 @@
 - `mysql_auto_increment` 方案依赖 MySQL
 - `redis_incr` 方案依赖 Redis
 - `snowflake` 方案本地发号
+- 若使用 V2 中的 Bloom 优化，Redis 需安装 `RedisBloom` 模块；未安装时系统自动降级到“精确缓存 + MySQL”路径
 
 ## 配置说明
 
