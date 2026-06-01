@@ -1,171 +1,115 @@
-# 短链系统 V2 Redis 优化建议
+# 短链系统 V2 缓存优化方案
 
 ## 1. 目标
+在不改变 V1 业务语义的前提下，用 Redis 降低 MySQL 查询压力。
+## 2. 当前实现
 
-基于当前 V1 实现，梳理哪些步骤适合用 Redis 优化，哪些步骤不值得引入缓存。
+### 2.1 创建短链
 
-前提：
-
-- MySQL 仍是最终真值
-- Redis 只负责加速与削峰
-- V1 不启用过期逻辑
-- 若使用布隆过滤器，需要 RedisBloom 或等价能力支持
-
-## 2. 当前链路
-
-创建短链：
+当前 `CreateLink` 的实际处理顺序是：
 
 1. 校验 `long_url`
 2. 规范化 `long_url`
 3. 计算 `url_hash`
-4. 按 `url_hash` 查 MySQL
-5. 命中相同长链则复用
-6. 未命中则生成 `short_code`
+4. 按 `url_hash` 查询 MySQL 候选记录(可优化)
+5. 对候选记录逐条比对规范化长链(可优化)
+6. 命中则复用已有 `short_code`
+7. 未命中则生成新的 `short_code`
 
-跳转短链：
+
+### 2.2 跳转短链
+
+当前 `Redirect` 的实际处理顺序是：
 
 1. 校验 `short_code`
-2. 按 `short_code` 查 MySQL
-3. 累加 `visit_count`
-4. 返回 `302`
+2. 按 `short_code` 查询 MySQL(可优化)
+3. 更新 `visit_count`(可优化，放到V3)
+4. 返回目标长链并发起 `302`
 
-## 3. 可优先优化的步骤
+## 3. 优化思路
 
-### 3.1 跳转查询缓存
+### 3.1 短链到长链
 
-优化点：
+建议方案：
 
-- `short_code -> original_url`
+- 使用 `short_code -> original_url` 的映射缓存跳转结果
+- Redis Key 使用 `shortlink:code:{short_code}`
+- Value 只保留跳转所需最小字段，例如 `original_url`
 
-原因：
 
-- 跳转是典型读多写少
-- 热门短链会重复命中同一条记录
-- 当前每次都查 MySQL，热点会直接压库
+### 3.2 长链到短链
 
-建议：
+- 直接缓存 `normalized_long_url -> short_code`
+- Redis Key 使用 `shortlink:long:{normalized_long_url}`
+- Value 为复用得到的 `short_code`
+- 命中时可以直接返回已有短链，避免重复查库
 
-- Key：`shortlink:code:{short_code}`
-- Value：跳转所需最小字段，如 `id`、`original_url`
-- 不存在的短码可加短 TTL 空值缓存
 
-结论：
+创建成功后回填：
 
-- 这是 V2 收益最高的 Redis 优化点
+- `shortlink:long:{normalized_long_url}`
 
-### 3.2 访问次数异步累加
+### 3.3 布隆过滤器减少不存在数据的查库次数
 
-优化点：
+建议方案：
 
-- `visit_count = visit_count + 1`
+- 对规范化长链建立布隆过滤器
+- 如果布隆判断不存在，可以跳过一次按 `url_hash` 的候选查库
+- 如果布隆判断可能存在，仍然继续查 MySQL 并做精确比对
+- 创建成功后回填布隆过滤器
 
-原因：
+收益：
 
-- 当前每次跳转都同步写 MySQL
-- 热门短链会形成单行更新热点
+- 新长链减少无结果查库
+- 降低创建链路中不存在数据的查库次数
 
-建议：
 
-- 跳转成功后先写 Redis `INCR`
-- 定时或批量刷回 MySQL
-- 回刷时使用增量累加，不做覆盖写
+## 4. 优化后接口逻辑顺序
 
-结论：
+### 4.1 创建短链接口
 
-- 应与跳转缓存一起落地
+优化后的建议顺序：
 
-### 3.3 `url_hash` 布隆过滤器
+1. 校验 `long_url`
+2. 规范化 `long_url`
+3. 查询 `shortlink:long:{normalized_long_url}`
+4. 若命中，直接返回已有 `short_code`
+5. 若未命中，查询 `shortlink:bloom:normalized_long_url`
+6. 若布隆判断可能存在，计算 `url_hash` 并查询 MySQL 候选记录
+7. 对候选记录逐条比对规范化长链
+8. 若命中已有记录，则返回已有 `short_code`，并回填 `shortlink:long:{normalized_long_url}`
+9. 若仍未命中，则计算 `url_hash` 并生成新的 `short_code`
+10. 写入 MySQL
+11. 回填 `shortlink:long:{normalized_long_url}` 和 `shortlink:bloom:normalized_long_url`
 
-优化点：
+### 4.2 跳转短链接口
 
-- `url_hash` 是否可能已存在
+优化后的建议顺序：
 
-原因：
+1. 校验 `short_code`
+2. 查询 `shortlink:code:{short_code}`
+3. 若命中，直接返回 `original_url`
+4. 若未命中，查询 MySQL
+5. 若命中记录，则回填 `shortlink:code:{short_code}`
+6. 按现有逻辑更新 MySQL 中的 `visit_count`
+7. 返回目标长链并发起 `302`
 
-- 当前创建短链时，会先按 `url_hash` 查 MySQL
-- 当大多数请求都是新长链时，这次查库通常无结果
-- 布隆过滤器适合拦截这类“不存在”的查库请求
-
-建议：
-
-- 先对规范化长链计算 `url_hash`
-- 先查布隆过滤器
-- 若判断“不存在”，可跳过按 `url_hash` 查 MySQL 候选记录
-- 若判断“可能存在”，再查 MySQL 候选记录并做精确比对
-- 创建成功后，将 `url_hash` 写入布隆过滤器
-- 若要严格保证“相同长链复用同一短链”，仍需结合精确缓存占位、分布式锁或数据库唯一约束等一致性手段
-
-结论：
-
-- 它优化的是“减少无效查库”
-- 不能替代 MySQL 真值判断
-
-### 3.4 长链复用缓存
-
-优化点：
-
-- `normalized_long_url -> short_code`
-
-原因：
-
-- 同一长链重复创建时，会反复走 MySQL 查重
-
-建议：
-
-- Key：`shortlink:long:{url_hash}:{normalized_long_url}`
-- Value：`short_code`
-- 创建成功后主动回填
-- 正常命中缓存可直接返回；仅在缓存重建、失效恢复等场景再回源 MySQL 校验
-
-结论：
-
-- 这是创建链路的优化点，但优先级低于跳转链路
-
-## 4. 风险与边界
-
-- 布隆过滤器只能用于“是否可能存在”的预判，不能作为复用真值
-- 当前系统没有针对规范化长链的数据库唯一约束，创建链路若要严格保证复用语义，需要额外一致性手段
-- 跳转缓存与长链复用缓存都需要明确失效策略，否则会出现脏数据
-- `visit_count` 异步回刷后，MySQL 中的访问次数将变为最终一致，而不是实时一致
-
-## 5. 推荐落地顺序
-
-第一阶段：
-
-1. `short_code -> original_url` 跳转缓存
-2. `visit_count` Redis 异步累加
-
-第二阶段：
-
-1. `url_hash` 布隆过滤器
-2. `normalized_long_url -> short_code` 长链复用缓存
-
-第三阶段：
-
-1. 空值缓存
-2. 热点 key 监控
-3. 预热策略
-
-## 6. 一致性要求
-
-- MySQL 始终是最终真值
-- 创建成功后主动回填缓存
-- 后续若支持编辑、禁用、软删，必须同步删除相关缓存
-
-涉及的关键 key：
+## 5. 关键 Key 设计
 
 - `shortlink:code:{short_code}`
-- `shortlink:long:{url_hash}:{normalized_long_url}`
-- `shortlink:visit:{id}` 或 `shortlink:visit:{short_code}`
-- `shortlink:bloom:url_hash`
+- `shortlink:long:{normalized_long_url}`
+- `shortlink:bloom:normalized_long_url`
 
-## 7. 结论
+## 6. 结论
 
-基于当前项目，最值得做的 Redis 优化是：
+V2 优先优化三个点：
 
-1. 跳转读缓存
-2. 访问次数异步计数
-3. `url_hash` 布隆过滤器
-4. 长链复用缓存
+- 短链到长链：解决热点读问题
+- 长链到短链：解决重复查重问题
+- 布隆过滤器：减少不存在数据的查库次数
 
-其中前两项优先级最高，创建链路相关优化放在第二阶段即可。
+按当前项目形态，Redis 在 V2 的角色应当是：
+
+- 为跳转提供读缓存
+- 为创建提供精确复用缓存
+- 为不存在数据提供查库前预判

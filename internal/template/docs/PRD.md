@@ -38,7 +38,7 @@
 
 - `short_code`
 - `short_url`
-- `original_url`
+- `original_url`：规范化后的长链
 
 ### 3.2 访问短链
 

@@ -75,8 +75,8 @@
 | --- | --- | --- |
 | `id` | bigint unsigned | 主键，自增 |
 | `short_code` | varchar(16) | 短码，唯一 |
-| `original_url` | varchar(2048) | 原始长链 |
-| `url_hash` | char(64) | `original_url` 去除尾部 `/` 后字符串的哈希值，用于查重 |
+| `original_url` | varchar(2048) | 规范化后的长链 |
+| `url_hash` | char(64) | 规范化长链的哈希值，用于辅助查重 |
 | `visit_count` | bigint unsigned | 访问次数，默认 `0` |
 | `expires_at` | datetime | 可空，过期时间预留字段，V1 不启用 |
 | `status` | tinyint unsigned | 状态，默认 `1` |
@@ -88,12 +88,13 @@
 
 - `PRIMARY KEY (id)`
 - `UNIQUE KEY uk_short_code (short_code)`
+- `UNIQUE KEY uk_original_url (original_url)`
 - `KEY idx_url_hash (url_hash)`
 
 ### 4.3 说明
 
-- 相同长链以 `original_url` 去除尾部 `/` 后字符串一致为准
-- `original_url` 不是数据库唯一键
+- 相同长链以规范化后的 `original_url` 字符串一致为准
+- `original_url` 保存规范化后的长链，并建立唯一约束
 - `url_hash` 仅作为查重辅助键，不作为最终唯一真值
 - `expires_at` 仅保留表结构，不参与 V1 创建和跳转逻辑
 - 若 `url_hash` 相同但长链字符串不同，视为哈希冲突，继续生成新的 `short_code`

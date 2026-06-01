@@ -14,7 +14,7 @@ const (
 
 type CodeGenerator interface {
 	Provider() string
-	NextCode(ctx context.Context, originalURL, urlHash string) (string, error)
+	NextCode(ctx context.Context, normalizedURL, urlHash string) (string, error)
 }
 
 type CodeManager struct {
@@ -69,7 +69,7 @@ func (m *CodeManager) Provider() string {
 	return m.provider
 }
 
-func (m *CodeManager) GenerateShortCode(ctx context.Context, originalURL, urlHash string) (string, error) {
+func (m *CodeManager) GenerateShortCode(ctx context.Context, normalizedURL, urlHash string) (string, error) {
 	if m == nil {
 		return "", fmt.Errorf("code manager is nil")
 	}
@@ -79,5 +79,5 @@ func (m *CodeManager) GenerateShortCode(ctx context.Context, originalURL, urlHas
 		return "", err
 	}
 
-	return generator.NextCode(ctx, originalURL, urlHash)
+	return generator.NextCode(ctx, normalizedURL, urlHash)
 }

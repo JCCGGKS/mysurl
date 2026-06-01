@@ -28,7 +28,7 @@ func (g *RedisIncrGenerator) Provider() string {
 	return ProviderRedisIncr
 }
 
-func (g *RedisIncrGenerator) NextCode(ctx context.Context, originalURL, urlHash string) (string, error) {
+func (g *RedisIncrGenerator) NextCode(ctx context.Context, normalizedURL, urlHash string) (string, error) {
 	if g == nil || g.redis == nil {
 		return "", errors.New("redis incr generator client is not configured")
 	}
@@ -42,5 +42,5 @@ func (g *RedisIncrGenerator) NextCode(ctx context.Context, originalURL, urlHash 
 	}
 
 	shortCode := utils.EncodeBase62(sequenceID)
-	return g.dao.CreateWithShortCode(ctx, shortCode, originalURL, urlHash)
+	return g.dao.CreateWithShortCode(ctx, shortCode, normalizedURL, urlHash)
 }

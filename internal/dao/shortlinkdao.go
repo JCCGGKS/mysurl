@@ -59,8 +59,8 @@ LIMIT 1
 	return &record, nil
 }
 
-// Insert creates a new short link record with the default active status.
-func (d *ShortLinkDAO) Insert(ctx context.Context, shortCode, originalURL, urlHash string) error {
+// Insert creates a new short link record with the normalized long URL.
+func (d *ShortLinkDAO) Insert(ctx context.Context, shortCode, normalizedURL, urlHash string) error {
 	query := `
 INSERT INTO short_links (
 	short_code,
@@ -69,17 +69,17 @@ INSERT INTO short_links (
 ) VALUES (?, ?, ?)
 `
 
-	_, err := d.conn.ExecCtx(ctx, query, shortCode, originalURL, urlHash)
+	_, err := d.conn.ExecCtx(ctx, query, shortCode, normalizedURL, urlHash)
 	return err
 }
 
 // CreateWithShortCode inserts a short link row with the provided short code.
-func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, shortCode, originalURL, urlHash string) (string, error) {
+func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, shortCode, normalizedURL, urlHash string) (string, error) {
 	if d == nil || d.conn == nil {
 		return "", fmt.Errorf("short link dao is not configured")
 	}
 
-	if err := d.Insert(ctx, shortCode, originalURL, urlHash); err != nil {
+	if err := d.Insert(ctx, shortCode, normalizedURL, urlHash); err != nil {
 		return "", err
 	}
 
@@ -88,7 +88,7 @@ func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, shortCode, origi
 
 // CreateWithAutoIncrement inserts a short link row first, then derives and updates
 // the short code from the generated auto increment id in one transaction.
-func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, originalURL, urlHash string) (string, error) {
+func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, normalizedURL, urlHash string) (string, error) {
 	if d == nil || d.conn == nil {
 		return "", fmt.Errorf("short link dao is not configured")
 	}
@@ -104,7 +104,7 @@ INSERT INTO short_links (
 ) VALUES (NULL, ?, ?)
 `
 
-		result, err := session.ExecCtx(ctx, insertQuery, originalURL, urlHash)
+		result, err := session.ExecCtx(ctx, insertQuery, normalizedURL, urlHash)
 		if err != nil {
 			return err
 		}

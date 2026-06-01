@@ -57,18 +57,18 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	}
 
 	for _, candidate := range candidates {
-		if utils.NormalizeOriginalURL(candidate.OriginalURL) == normalizedURL {
+		if candidate.OriginalURL == normalizedURL {
 			return l.buildCreateLinkResponse(candidate.ShortCode, candidate.OriginalURL), nil
 		}
 	}
 
-	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, originalURL, urlHash)
+	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, normalizedURL, urlHash)
 	if genErr != nil {
 		l.Errorf("generate short code failed: %v", genErr)
 		return nil, utils.InternalError("generate short code failed: " + genErr.Error())
 	}
 
-	return l.buildCreateLinkResponse(shortCode, originalURL), nil
+	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 }
 
 func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string) *types.CreateLinkResponse {
