@@ -21,11 +21,12 @@ var (
 )
 
 type ServiceContext struct {
-	Config       config.Config
-	DB           sqlx.SqlConn
-	Redis        *goredis.Client
-	ShortLinkDAO *dao.ShortLinkDAO
-	CodeManager  *codestrategy.CodeManager
+	Config         config.Config
+	DB             sqlx.SqlConn
+	Redis          *goredis.Client
+	ShortLinkCache *dao.ShortLinkCache
+	ShortLinkDAO   *dao.ShortLinkDAO
+	CodeManager    *codestrategy.CodeManager
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -35,6 +36,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 			DB:     newMySQL(c.MySQL),
 			Redis:  newRedis(c.Redis),
 		}
+		serviceContext.ShortLinkCache = dao.NewShortLinkCache(serviceContext.Redis)
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
 		serviceContext.CodeManager = mustNewCodeManager(c.Short, serviceContext.ShortLinkDAO)
 	})

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"mysurl1/internal/dao"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -46,6 +47,18 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		return "", utils.BadRequest("code is required")
 	}
 
+	cacheValue, cacheErr := l.svcCtx.ShortLinkCache.GetShortToLong(l.ctx, code)
+	if cacheErr != nil {
+		l.Errorf("get short code cache failed: %v", cacheErr)
+	} else if cacheValue != nil {
+		if err := l.svcCtx.ShortLinkDAO.IncrementVisitCount(l.ctx, cacheValue.ID); err != nil {
+			l.Errorf("increment visit count failed: %v", err)
+			return "", utils.InternalError("increment visit count failed")
+		}
+
+		return cacheValue.OriginalURL, nil
+	}
+
 	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByCode(l.ctx, code)
 	if err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
@@ -53,7 +66,14 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		}
 
 		l.Errorf("query short link by code failed: %v", err)
-		return "", utils.InternalError("query short link failed: "+ err.Error())
+		return "", utils.InternalError("query short link failed: " + err.Error())
+	}
+
+	if err := l.svcCtx.ShortLinkCache.SetShortToLong(l.ctx, code, dao.ShortToLongCacheValue{
+		ID:          record.ID,
+		OriginalURL: record.OriginalURL,
+	}); err != nil {
+		l.Errorf("set short code cache failed: %v", err)
 	}
 
 	if err := l.svcCtx.ShortLinkDAO.IncrementVisitCount(l.ctx, record.ID); err != nil {

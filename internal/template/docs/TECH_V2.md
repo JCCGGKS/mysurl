@@ -55,6 +55,7 @@
 - 如果布隆判断不存在，可以直接进入新建流程
 - 如果布隆判断可能存在，再继续查 `shortlink:long:{normalized_long_url}`
 - 若精确缓存仍未命中，再按 `original_url` 查询 MySQL
+- 若布隆未命中但新建时触发 `uk_original_url` 冲突，则回查 MySQL 并复用已有短链(可优化，放到v3)
 - 创建成功后回填布隆过滤器和缓存
 
 收益：
@@ -79,7 +80,8 @@
 8. 若命中已有记录，则返回已有 `short_code`，并回填 `shortlink:long:{normalized_long_url}`
 9. 若仍未命中，则生成新的 `short_code`
 10. 写入 MySQL
-11. 回填 `shortlink:long:{normalized_long_url}` 和 `shortlink:bloom:normalized_long_url`
+11. 若写入命中 `uk_original_url` 冲突，则回查 MySQL 并复用已有 `short_code`
+12. 回填 `shortlink:long:{normalized_long_url}` 和 `shortlink:bloom:normalized_long_url`
 
 ### 4.2 跳转短链接口
 

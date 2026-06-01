@@ -59,6 +59,24 @@ LIMIT 1
 	return &record, nil
 }
 
+// FindAvailableByOriginalURL loads a non-deleted short link by normalized original URL.
+func (d *ShortLinkDAO) FindAvailableByOriginalURL(ctx context.Context, normalizedURL string) (*model.ShortLink, error) {
+	var record model.ShortLink
+	query := `
+SELECT *
+FROM short_links
+WHERE original_url = ?
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+	if err := d.conn.QueryRowCtx(ctx, &record, query, normalizedURL); err != nil {
+		return nil, err
+	}
+
+	return &record, nil
+}
+
 // Insert creates a new short link record with the normalized long URL.
 func (d *ShortLinkDAO) Insert(ctx context.Context, shortCode, normalizedURL, urlHash string) error {
 	query := `

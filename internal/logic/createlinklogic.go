@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	types "mysurl1/internal/schema"
@@ -12,6 +13,7 @@ import (
 	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type CreateLinkLogic struct {
@@ -50,25 +52,59 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	normalizedURL := utils.NormalizeOriginalURL(originalURL)
 	urlHash := utils.HashOriginalURL(normalizedURL)
 
-	candidates, err := l.svcCtx.ShortLinkDAO.FindAvailableByHash(l.ctx, urlHash)
+	bloomExists, err := l.svcCtx.ShortLinkCache.BloomExists(l.ctx, normalizedURL)
 	if err != nil {
-		l.Errorf("query short links by hash failed: %v", err)
-		return nil, utils.InternalError("query short links failed:" + err.Error())
+		l.Errorf("check normalized url bloom failed: %v", err)
+		bloomExists = true
 	}
 
-	for _, candidate := range candidates {
-		if candidate.OriginalURL == normalizedURL {
-			return l.buildCreateLinkResponse(candidate.ShortCode, candidate.OriginalURL), nil
+	if bloomExists {
+		shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, normalizedURL)
+		if cacheErr != nil {
+			l.Errorf("get normalized url cache failed: %v", cacheErr)
+		} else if shortCode != "" {
+			return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
+		}
+
+		record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, normalizedURL)
+		if findErr != nil && !errors.Is(findErr, sqlx.ErrNotFound) {
+			l.Errorf("query short link by original url failed: %v", findErr)
+			return nil, utils.InternalError("query short link failed: " + findErr.Error())
+		}
+		if findErr == nil {
+			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 		}
 	}
 
 	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, normalizedURL, urlHash)
 	if genErr != nil {
+		if utils.IsDuplicateEntryError(genErr, "uk_original_url") {
+			record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, normalizedURL)
+			if findErr != nil {
+				l.Errorf("query short link after duplicate original url failed: %v", findErr)
+				return nil, utils.InternalError("query short link failed: " + findErr.Error())
+			}
+
+			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
+		}
+
 		l.Errorf("generate short code failed: %v", genErr)
 		return nil, utils.InternalError("generate short code failed: " + genErr.Error())
 	}
 
+	l.fillCreateCaches(normalizedURL, shortCode)
 	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
+}
+
+func (l *CreateLinkLogic) fillCreateCaches(normalizedURL, shortCode string) {
+	if err := l.svcCtx.ShortLinkCache.SetLongToShort(l.ctx, normalizedURL, shortCode); err != nil {
+		l.Errorf("set normalized url cache failed: %v", err)
+	}
+	if err := l.svcCtx.ShortLinkCache.BloomAdd(l.ctx, normalizedURL); err != nil {
+		l.Errorf("add normalized url bloom failed: %v", err)
+	}
 }
 
 func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string) *types.CreateLinkResponse {
