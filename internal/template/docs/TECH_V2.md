@@ -10,11 +10,9 @@
 
 1. 校验 `long_url`
 2. 规范化 `long_url`
-3. 计算 `url_hash`
-4. 按 `url_hash` 查询 MySQL 候选记录(可优化)
-5. 对候选记录逐条比对规范化长链(可优化)
-6. 命中则复用已有 `short_code`
-7. 未命中则生成新的 `short_code`
+3. 按 `original_url` 查询 MySQL(可优化)
+4. 命中则复用已有 `short_code`
+5. 未命中则生成新的 `short_code`
 
 
 ### 2.2 跳转短链
@@ -44,7 +42,6 @@
 - Value 为复用得到的 `short_code`
 - 命中时可以直接返回已有短链，避免重复查库
 
-
 创建成功后回填：
 
 - `shortlink:long:{normalized_long_url}`
@@ -54,9 +51,11 @@
 建议方案：
 
 - 对规范化长链建立布隆过滤器
-- 如果布隆判断不存在，可以跳过一次按 `url_hash` 的候选查库
-- 如果布隆判断可能存在，仍然继续查 MySQL 并做精确比对
-- 创建成功后回填布隆过滤器
+- 创建链路先查布隆过滤器
+- 如果布隆判断不存在，可以直接进入新建流程
+- 如果布隆判断可能存在，再继续查 `shortlink:long:{normalized_long_url}`
+- 若精确缓存仍未命中，再按 `original_url` 查询 MySQL
+- 创建成功后回填布隆过滤器和缓存
 
 收益：
 
@@ -72,13 +71,13 @@
 
 1. 校验 `long_url`
 2. 规范化 `long_url`
-3. 查询 `shortlink:long:{normalized_long_url}`
-4. 若命中，直接返回已有 `short_code`
-5. 若未命中，查询 `shortlink:bloom:normalized_long_url`
-6. 若布隆判断可能存在，计算 `url_hash` 并查询 MySQL 候选记录
-7. 对候选记录逐条比对规范化长链
+3. 查询 `shortlink:bloom:normalized_long_url`
+4. 若布隆判断不存在，直接生成新的 `short_code`
+5. 若布隆判断可能存在，查询 `shortlink:long:{normalized_long_url}`
+6. 若精确缓存命中，直接返回已有 `short_code`
+7. 若精确缓存未命中，按 `original_url` 查询 MySQL
 8. 若命中已有记录，则返回已有 `short_code`，并回填 `shortlink:long:{normalized_long_url}`
-9. 若仍未命中，则计算 `url_hash` 并生成新的 `short_code`
+9. 若仍未命中，则生成新的 `short_code`
 10. 写入 MySQL
 11. 回填 `shortlink:long:{normalized_long_url}` 和 `shortlink:bloom:normalized_long_url`
 
@@ -89,7 +88,7 @@
 1. 校验 `short_code`
 2. 查询 `shortlink:code:{short_code}`
 3. 若命中，直接返回 `original_url`
-4. 若未命中，查询 MySQL
+4. 若未命中，查询 MySQL(可优化，放到v3)
 5. 若命中记录，则回填 `shortlink:code:{short_code}`
 6. 按现有逻辑更新 MySQL 中的 `visit_count`
 7. 返回目标长链并发起 `302`
@@ -113,3 +112,8 @@ V2 优先优化三个点：
 - 为跳转提供读缓存
 - 为创建提供精确复用缓存
 - 为不存在数据提供查库前预判
+
+补充：
+
+- V2 创建链路直接按规范化后的 `original_url` 做精确判断
+- `url_hash` 只属于 V1 方案，V2 不再作为创建链路判断依据
