@@ -51,9 +51,8 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 	if cacheErr != nil {
 		l.Errorf("get short code cache failed: %v", cacheErr)
 	} else if cacheValue != nil {
-		if err := l.svcCtx.ShortLinkDAO.IncrementVisitCount(l.ctx, cacheValue.ID); err != nil {
-			l.Errorf("increment visit count failed: %v", err)
-			return "", utils.InternalError("increment visit count failed")
+		if err := l.svcCtx.ShortLinkCache.IncrVisitCount(l.ctx, cacheValue.ID); err != nil {
+			l.Errorf("incr visit count failed: %v", err)
 		}
 
 		l.Infof("redirect hit short->long cache, short_code=%s target=%s", code, cacheValue.OriginalURL)
@@ -77,9 +76,8 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		l.Errorf("set short code cache failed: %v", err)
 	}
 
-	if err := l.svcCtx.ShortLinkDAO.IncrementVisitCount(l.ctx, record.ID); err != nil {
-		l.Errorf("increment visit count failed: %v", err)
-		return "", utils.InternalError("increment visit count failed")
+	if err := l.svcCtx.ShortLinkCache.IncrVisitCount(l.ctx, record.ID); err != nil {
+		l.Errorf("incr visit count failed: %v", err)
 	}
 
 	l.Infof("redirect hit mysql by short_code, short_code=%s target=%s", code, record.OriginalURL)

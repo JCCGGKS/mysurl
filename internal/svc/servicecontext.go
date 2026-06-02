@@ -10,6 +10,7 @@ import (
 	"mysurl1/internal/config"
 	"mysurl1/internal/dao"
 	codestrategy "mysurl1/internal/logic/code_strategy"
+	"mysurl1/internal/utils"
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -39,6 +40,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		serviceContext.ShortLinkCache = dao.NewShortLinkCache(serviceContext.Redis)
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
 		serviceContext.CodeManager = mustNewCodeManager(c.Short, serviceContext.ShortLinkDAO)
+		utils.StartVisitFlushWorker(serviceContext.DB, serviceContext.ShortLinkCache)
 	})
 
 	return serviceContext

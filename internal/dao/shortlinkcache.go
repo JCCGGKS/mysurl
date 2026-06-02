@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -126,12 +127,66 @@ func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) err
 	return err
 }
 
+func (c *ShortLinkCache) IncrVisitCount(ctx context.Context, id uint64) error {
+	if c == nil || c.redis == nil {
+		return nil
+	}
+
+	return c.redis.Incr(ctx, visitCountKey(id)).Err()
+}
+
+func (c *ShortLinkCache) ScanVisitCountKeys(ctx context.Context, cursor uint64, count int64) ([]string, uint64, error) {
+	if c == nil || c.redis == nil {
+		return nil, 0, nil
+	}
+
+	keys, nextCursor, err := c.redis.Scan(ctx, cursor, "shortlink:visit:*", count).Result()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return keys, nextCursor, nil
+}
+
+func (c *ShortLinkCache) GetVisitCountDelta(ctx context.Context, key string) (uint64, error) {
+	if c == nil || c.redis == nil {
+		return 0, nil
+	}
+
+	raw, err := c.redis.Get(ctx, key).Result()
+	if errors.Is(err, goredis.Nil) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	value, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return value, nil
+}
+
+func (c *ShortLinkCache) DeleteVisitCountKey(ctx context.Context, key string) error {
+	if c == nil || c.redis == nil {
+		return nil
+	}
+
+	return c.redis.Del(ctx, key).Err()
+}
+
 func shortToLongCacheKey(shortCode string) string {
 	return fmt.Sprintf("shortlink:code:%s", shortCode)
 }
 
 func longToShortCacheKey(normalizedURL string) string {
 	return fmt.Sprintf("shortlink:long:%s", normalizedURL)
+}
+
+func visitCountKey(id uint64) string {
+	return fmt.Sprintf("shortlink:visit:%d", id)
 }
 
 func (c *ShortLinkCache) handleBloomUnavailable(err error) bool {

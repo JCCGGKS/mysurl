@@ -9,6 +9,7 @@
 - 基于 MySQL 持久化短链映射
 - 支持 `mysql_auto_increment`、`redis_incr`、`snowflake` 三种短码生成策略
 - V2 接口链路已接入 Redis 精确缓存，并支持 RedisBloom 缺失时自动降级
+- V3 已将 `visit_count` 调整为 Redis 聚合后异步回刷 MySQL
 
 
 ## 运行依赖

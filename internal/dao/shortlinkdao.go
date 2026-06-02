@@ -155,3 +155,9 @@ func (d *ShortLinkDAO) IncrementVisitCount(ctx context.Context, id uint64) error
 	_, err := d.conn.ExecCtx(ctx, "UPDATE short_links SET visit_count = visit_count + 1 WHERE id = ?", id)
 	return err
 }
+
+// AddVisitCount increases visit_count by the given delta.
+func (d *ShortLinkDAO) AddVisitCount(ctx context.Context, id, delta uint64) error {
+	_, err := d.conn.ExecCtx(ctx, "UPDATE short_links SET visit_count = visit_count + ? WHERE id = ?", delta, id)
+	return err
+}
