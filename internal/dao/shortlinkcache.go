@@ -95,7 +95,7 @@ func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) 
 		return true, nil
 	}
 
-	result, err := c.redis.Do(ctx, "BF.EXISTS", bloomNormalizedURLKey, normalizedURL).Int64()
+	result, err := c.redis.Do(ctx, "BF.EXISTS", bloomNormalizedURLKey, normalizedURL).Bool()
 	if err != nil {
 		if c.handleBloomUnavailable(err) {
 			return true, nil
@@ -104,7 +104,7 @@ func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) 
 		return false, err
 	}
 
-	return result == 1, nil
+	return result, nil
 }
 
 func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) error {

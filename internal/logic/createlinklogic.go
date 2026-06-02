@@ -55,7 +55,6 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	bloomExists, err := l.svcCtx.ShortLinkCache.BloomExists(l.ctx, normalizedURL)
 	if err != nil {
 		l.Errorf("check normalized url bloom failed: %v", err)
-		bloomExists = true
 	}
 
 	if bloomExists {
