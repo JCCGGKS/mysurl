@@ -21,6 +21,10 @@ type Response struct {
 }
 
 func Success(data any) Response {
+	if IsNil(data) {
+		data = nil
+	}
+
 	return Response{
 		Code:      CodeOK,
 		Msg:       MsgOK,
