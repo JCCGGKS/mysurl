@@ -121,3 +121,6 @@ V2 优先优化三个点：
 
 - V2 创建链路直接按规范化后的 `original_url` 做精确判断
 - `url_hash` 只属于 V1 方案，V2 不再作为创建链路判断依据
+
+# 布隆过滤器插件安装
++ https://blog.csdn.net/u014390502/article/details/142726347
