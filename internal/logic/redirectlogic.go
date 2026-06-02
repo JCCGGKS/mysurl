@@ -56,6 +56,7 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 			return "", utils.InternalError("increment visit count failed")
 		}
 
+		l.Infof("redirect hit short->long cache, short_code=%s target=%s", code, cacheValue.OriginalURL)
 		return cacheValue.OriginalURL, nil
 	}
 
@@ -81,5 +82,6 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		return "", utils.InternalError("increment visit count failed")
 	}
 
+	l.Infof("redirect hit mysql by short_code, short_code=%s target=%s", code, record.OriginalURL)
 	return record.OriginalURL, nil
 }

@@ -55,6 +55,10 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	bloomExists, err := l.svcCtx.ShortLinkCache.BloomExists(l.ctx, normalizedURL)
 	if err != nil {
 		l.Errorf("check normalized url bloom failed: %v", err)
+	} else if bloomExists {
+		l.Infof("create link bloom possible hit, normalized_url=%s", normalizedURL)
+	} else {
+		l.Infof("create link bloom miss, normalized_url=%s", normalizedURL)
 	}
 
 	if bloomExists {
@@ -62,6 +66,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		if cacheErr != nil {
 			l.Errorf("get normalized url cache failed: %v", cacheErr)
 		} else if shortCode != "" {
+			l.Infof("create link hit long->short cache, normalized_url=%s short_code=%s", normalizedURL, shortCode)
 			return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 		}
 
@@ -72,6 +77,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		}
 		if findErr == nil {
 			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			l.Infof("create link hit mysql by original_url, normalized_url=%s short_code=%s", normalizedURL, record.ShortCode)
 			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 		}
 	}
@@ -86,6 +92,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 			}
 
 			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			l.Infof("create link reused after unique conflict, normalized_url=%s short_code=%s", normalizedURL, record.ShortCode)
 			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 		}
 
@@ -94,6 +101,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	}
 
 	l.fillCreateCaches(normalizedURL, shortCode)
+	l.Infof("create link created new short code, normalized_url=%s short_code=%s provider=%s", normalizedURL, shortCode, l.svcCtx.CodeManager.Provider())
 	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 }
 
