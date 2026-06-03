@@ -6,6 +6,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	types "mysurl1/internal/schema"
@@ -82,27 +83,67 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		}
 	}
 
-	shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, normalizedURL, urlHash)
-	if genErr != nil {
-		if utils.IsDuplicateEntryError(genErr, "uk_original_url") {
-			record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, normalizedURL)
-			if findErr != nil {
-				l.Errorf("query short link after duplicate original url failed: %v", findErr)
-				return nil, utils.InternalError("query short link failed: " + findErr.Error())
-			}
-
-			l.fillCreateCaches(normalizedURL, record.ShortCode)
-			l.Infof("create link reused after unique conflict, normalized_url=%s short_code=%s", normalizedURL, record.ShortCode)
-			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
+	result, fresh, err := l.svcCtx.FlightGroup.DoEx(createSingleflightKey(normalizedURL), func() (any, error) {
+		shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, normalizedURL)
+		if cacheErr != nil {
+			l.Errorf("get normalized url cache in singleflight failed: %v", cacheErr)
+		} else if shortCode != "" {
+			return createLinkResult{
+				shortCode:   shortCode,
+				originalURL: normalizedURL,
+				source:      "long->short cache",
+			}, nil
 		}
 
-		l.Errorf("generate short code failed: %v", genErr)
-		return nil, utils.InternalError("generate short code failed: " + genErr.Error())
+		record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, normalizedURL)
+		if findErr != nil && !errors.Is(findErr, sqlx.ErrNotFound) {
+			return nil, findErr
+		}
+		if findErr == nil {
+			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			return createLinkResult{
+				shortCode:   record.ShortCode,
+				originalURL: record.OriginalURL,
+				source:      "mysql by original_url",
+			}, nil
+		}
+
+		shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, normalizedURL, urlHash)
+		if genErr != nil {
+			return nil, genErr
+		}
+
+		l.fillCreateCaches(normalizedURL, shortCode)
+		return createLinkResult{
+			shortCode:   shortCode,
+			originalURL: normalizedURL,
+			source:      fmt.Sprintf("new short code by provider=%s", l.svcCtx.CodeManager.Provider()),
+		}, nil
+	})
+	if err != nil {
+		l.Errorf("create link in singleflight failed: %v", err)
+		return nil, utils.InternalError("create link failed: " + err.Error())
 	}
 
-	l.fillCreateCaches(normalizedURL, shortCode)
-	l.Infof("create link created new short code, normalized_url=%s short_code=%s provider=%s", normalizedURL, shortCode, l.svcCtx.CodeManager.Provider())
-	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
+	createResult, ok := result.(createLinkResult)
+	if !ok {
+		l.Errorf("invalid create link result type: %T", result)
+		return nil, utils.InternalError("invalid create link result")
+	}
+
+	logSource := createResult.source
+	if !fresh {
+		logSource = fmt.Sprintf("%s via singleflight", logSource)
+	}
+
+	l.Infof("create link hit %s, normalized_url=%s short_code=%s", logSource, normalizedURL, createResult.shortCode)
+	return l.buildCreateLinkResponse(createResult.shortCode, createResult.originalURL), nil
+}
+
+type createLinkResult struct {
+	shortCode   string
+	originalURL string
+	source      string
 }
 
 func (l *CreateLinkLogic) fillCreateCaches(normalizedURL, shortCode string) {
@@ -120,4 +161,8 @@ func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string)
 		ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
 		OriginalURL: originalURL,
 	}
+}
+
+func createSingleflightKey(normalizedURL string) string {
+	return "create:" + normalizedURL
 }

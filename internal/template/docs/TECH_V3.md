@@ -8,7 +8,7 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 
 - `visit_count` 改为 Redis 聚合后异步回刷 MySQL
 - 跳转链路缓存未命中时使用 `singleflight` 合并查库
-- 创建链路首次新建时使用并发控制，减少重复发号和唯一键冲突
+- 创建链路首次新建时使用并发控制，减少重复发号和重复新建
 
 ## 2. 核心优化
 
@@ -30,7 +30,9 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 ### 2.2 跳转链路 `singleflight`
 
 - `short_code -> original_url` 缓存未命中时进入 `singleflight`
-- key 使用 `redirect:{short_code}`
+- 直接使用 `github.com/zeromicro/go-zero/core/syncx`
+- 并发控制 key 使用 `redirect:{short_code}`
+- Redis 缓存 key 继续使用 `shortlink:code:{short_code}`，不与并发控制 key 混用
 - 由一个请求回源 MySQL 并回填缓存，其余请求共享结果
 
 收益：
@@ -43,12 +45,11 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 - 优先使用进程内 `singleflight`
 - key 使用 `create:{normalized_long_url}`
 - 控制区内完成查缓存、查 MySQL、新建、回填
-- `uk_original_url` 继续保留为最终兜底
 
 收益：
 
 - 减少重复发号
-- 减少唯一键冲突
+- 减少重复新建
 
 ## 3. 接口链路
 
@@ -69,11 +70,12 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 建议顺序：
 
 1. 校验 `short_code`
-2. 查 `short_code -> original_url` 缓存
+2. 查 `shortlink:code:{short_code}`
 3. 若未命中，进入 `redirect:{short_code}` 的 `singleflight`
-4. 回源 MySQL 并回填缓存
-5. 跳转成功后写 Redis 访问增量
-6. 返回 `302`
+4. 控制区内再次查 `shortlink:code:{short_code}`
+5. 若仍未命中，则回源 MySQL 并回填缓存
+6. 跳转成功后写 Redis 访问增量
+7. 返回 `302`
 
 补充：
 
@@ -83,8 +85,9 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 ## 4. 关键组件
 
 - `shortlink:visit:{id}`：访问次数增量
-- `singleflight.Group`：跳转链路查库合并
-- `singleflight.Group`：创建链路并发控制
+- `shortlink:code:{short_code}`：短链跳转精确缓存
+- `singleflight.Group`：基于 `github.com/zeromicro/go-zero/core/syncx` 的统一并发控制组件
+- `redirect:{short_code}` / `create:{normalized_long_url}`：通过不同 key 前缀区分跳转和创建链路
 - 后台回刷任务：批量同步 `visit_count`
 
 回刷任务建议职责：
@@ -117,8 +120,8 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 - `visit_count` 从实时一致变为最终一致
 - 简单版回刷在极端故障场景下可能存在少量重复累计风险
 - `singleflight` 只能解决单实例并发
+- `singleflight` key 只用于并发控制，不承担缓存语义
 - 多实例场景下，创建链路若要求更强控制，后续再补 Redis 分布式锁
-- `uk_original_url` 不能移除
 - `visit_count` 更适合作为统计口径，不适合作为强一致业务计费依据
 
 ## 6. 结论

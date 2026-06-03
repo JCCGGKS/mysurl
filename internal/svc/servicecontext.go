@@ -14,6 +14,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/core/syncx"
 )
 
 var (
@@ -28,14 +29,16 @@ type ServiceContext struct {
 	ShortLinkCache *dao.ShortLinkCache
 	ShortLinkDAO   *dao.ShortLinkDAO
 	CodeManager    *codestrategy.CodeManager
+	FlightGroup    syncx.SingleFlight
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	serviceContextOnce.Do(func() {
 		serviceContext = &ServiceContext{
-			Config: c,
-			DB:     newMySQL(c.MySQL),
-			Redis:  newRedis(c.Redis),
+			Config:      c,
+			DB:          newMySQL(c.MySQL),
+			Redis:       newRedis(c.Redis),
+			FlightGroup: syncx.NewSingleFlight(),
 		}
 		serviceContext.ShortLinkCache = dao.NewShortLinkCache(serviceContext.Redis)
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
