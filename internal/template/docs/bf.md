@@ -11,22 +11,7 @@
 
 它不能保证“命中就一定存在”。
 
-## 2. 核心特点
-
-布隆过滤器的核心价值是：
-
-- 占用内存小
-- 查询速度快
-- 适合海量数据的存在性判断
-
-代价是：
-
-- 允许误判
-- 一般不支持精确删除
-
-所以它适合做前置过滤，而不适合做最终真值存储。
-
-## 3. 工作原理
+## 2. 工作原理
 
 布隆过滤器底层通常是一段 bit 数组，加上多个 hash 函数。
 
@@ -35,157 +20,59 @@
 - 有一个长度为 `m` 的 bit 数组，初始全为 `0`
 - 有 `k` 个 hash 函数
 
-### 3.1 插入元素
+插入元素 `x`：
 
-插入一个元素 `x` 时：
+1. 计算 `k` 个 hash 位置
+2. 把这些位置上的 bit 置为 `1`
 
-1. 用 `k` 个 hash 函数分别计算 `x`
-2. 得到 `k` 个位置
-3. 把这些位置上的 bit 全部置为 `1`
+查询元素 `x`：
 
-### 3.2 查询元素
+1. 计算同样的 `k` 个 hash 位置
+2. 只要有一个 bit 为 `0`，则一定不存在
+3. 如果全部为 `1`，则可能存在
 
-查询一个元素 `x` 时：
+## 3. 误判与边界
 
-1. 同样计算出 `k` 个位置
-2. 检查这些位置的 bit
+误判来源：
 
-判断规则：
+- 不同元素可能落到同一组 bit 上
+- 某个未插入元素查询时，所需 bit 恰好都被其他元素置成了 `1`
 
-- 只要有一个 bit 是 `0`，就说明该元素一定不存在
-- 如果所有 bit 都是 `1`，则说明该元素可能存在
+所以布隆过滤器的特点是：
 
-## 4. 为什么会误判
+- 不会把“已存在”判断成“不存在”
+- 会把“某些不存在”误判成“可能存在”
 
-误判的原因很简单：
+它适合做前置过滤，不适合做最终真值存储。
 
-- 不同元素经过 hash 后，可能会落到相同的 bit 位置
-- 某个元素查询时需要检查的多个 bit，可能恰好都被别的元素置成了 `1`
+## 4. 为什么不方便删除
 
-这时布隆过滤器会返回“可能存在”，但实际上该元素并没有插入过。
+普通布隆过滤器只记录 bit 是否为 `1`，不记录这个 bit 是谁置上的。
 
-这就是假阳性，False Positive。
+如果直接清零：
 
-注意：
+- 可能把别的元素共享的 bit 一起删掉
+- 导致本来存在的元素被误判为不存在
 
-- 布隆过滤器一定不会出现“明明存在却判断不存在”的情况
-- 它的问题主要是“把不存在误判成存在”
+所以标准 Bloom 一般只支持：
 
-## 5. 三个关键参数
+- 插入
+- 查询
 
-布隆过滤器效果主要由三个参数决定：
+如果要求删除，通常要考虑：
+
+- Counting Bloom Filter
+- 或 Cuckoo Filter
+
+## 5. 调参
+
+三个核心参数：
 
 - `n`：预计插入元素数量
 - `m`：bit 数组长度
 - `k`：hash 函数数量
 
-它们之间有直接权衡关系。
-
-### 5.1 m 太小
-
-- bit 很快被打满
-- 误判率迅速上升
-
-### 5.2 k 太少
-
-- 每个元素影响的 bit 太少
-- 信息分散不够，误判率高
-
-### 5.3 k 太多
-
-- 每次插入和查询都要做更多 hash
-- 性能变差
-- bit 被置满得更快，误判率反而会上升
-
-所以布隆过滤器不是 hash 函数越多越好，而是存在一个相对合适的 `k`。
-
-## 6. 为什么不能方便删除
-
-普通布隆过滤器只知道某个 bit 是 `1`，但不知道这个 `1` 是由哪些元素置上的。
-
-如果删除一个元素时直接把对应 bit 改回 `0`，可能会影响其他元素：
-
-- 元素 `a` 和 `b` 共享了某些 bit
-- 删除 `a` 时把这些 bit 清掉
-- 再查询 `b` 就可能错误地得到“不存在”
-
-所以标准布隆过滤器通常只支持：
-
-- 插入
-- 查询
-
-不支持安全删除。
-
-如果确实要支持删除，通常要改用：
-
-- Counting Bloom Filter
-
-也就是把 bit 改成计数器，而不是单纯的 `0/1`。
-
-## 7. 优点
-
-- 内存占用远小于直接存储完整集合
-- 查询复杂度稳定，通常接近 `O(k)`
-- 特别适合“先挡住明显不存在的数据”
-- 在缓存、存储、检索、反爬等场景里很常见
-
-## 8. 缺点
-
-- 有误判
-- 一般不支持精确删除
-- 无法枚举出集合中所有真实元素
-- 参数估计不合理时，误判率会迅速恶化
-
-所以它只能做“辅助判断”，不能代替数据库或精确索引。
-
-## 9. 典型使用场景
-
-### 9.1 缓存穿透防护
-
-先查布隆过滤器：
-
-- 若未命中，直接判定一定不存在，避免查缓存和数据库
-- 若命中，再继续查缓存或数据库
-
-### 9.2 短链系统
-
-对长链或短码做存在性预判：
-
-- 未命中：大概率可以直接进入新建或不存在路径
-- 命中：继续查精确缓存和 MySQL
-
-## 11. 调参方法
-
-### 11.1 在线计算器
-
-生产上最常用的调参方式，通常是先给出：
-
-- `n`：预期元素量
-- `p`：目标误判率
-
-再反推出：
-
-- `m`：bit 数组总长度
-- `k`：最优 hash 函数数量
-- 内存占用
-
-常用工具：
-
-1. `hur.st`
-- 地址：`https://hur.st/bloomfilter/`
-- 特点：业界最常用，Guava / RedisBloom 调参时经常参考
-
-2. `krisives`
-- 地址：`https://krisives.github.io/bloom-calculator/`
-- 特点：界面简洁，适合快速验算 `m / k / p`
-
-3. `codingace`
-- 地址：`https://codingace.net/maths/bloom_filter.html`
-- 特点：支持按内存、误判率、数据量等多种方式反推
-
-### 11.2 核心公式
-
-最常用的三个公式：
+核心公式：
 
 ```text
 m = -n * ln(p) / (ln2)^2
@@ -193,110 +80,184 @@ k = ln2 * m / n
 p = (1 - e^(-kn/m))^k
 ```
 
+常见经验值：
+
+- `p = 1% (0.01)`：约 `9.6 bit/元素`，`k ≈ 7`
+- `p = 0.1% (0.001)`：约 `14.4 bit/元素`，`k ≈ 10`
+- `p = 0.01% (0.0001)`：约 `19.2 bit/元素`，`k ≈ 14`
+
+常用在线计算器：
+
+- `https://hur.st/bloomfilter/`
+- `https://krisives.github.io/bloom-calculator/`
+- `https://codingace.net/maths/bloom_filter.html`
+
+## 6. 典型场景
+
+- 缓存穿透防护
+- 短链系统里的长链存在性预判
+- 爬虫去重 / 消息去重
+
+在当前短链项目里，它的定位应该是：
+
+- 前置优化组件
+- 减少无意义查库和查缓存
+- 不参与最终正确性判断
+
+## 7. RedisBloom 源码入口
+
+当前仓库里的 RedisBloom Bloom 实现主要在：
+
+- `RedisBloom/src/rebloom.c`
+- `RedisBloom/src/sb.c`
+- `RedisBloom/deps/bloom/bloom.c`
+
+职责分层：
+
+- `rebloom.c`：Redis 命令入口
+- `sb.c`：可扩容 Bloom chain
+- `bloom.c`：底层 bitset / hash / check / add
+
+## 8. RedisBloom 命令层
+
+Bloom 命令在 `rebloom.c` 注册：
+
+```c
+RegisterCommand(ctx, "bf.reserve", BFReserve_RedisCommand, "write deny-oom", "write fast");
+RegisterCommand(ctx, "bf.add", BFAdd_RedisCommand, "write deny-oom", "write");
+RegisterCommand(ctx, "bf.madd", BFAdd_RedisCommand, "write deny-oom", "write");
+RegisterCommand(ctx, "bf.insert", BFInsert_RedisCommand, "write deny-oom", "write");
+RegisterCommand(ctx, "bf.exists", BFCheck_RedisCommand, "readonly fast", "read");
+RegisterCommand(ctx, "bf.mexists", BFCheck_RedisCommand, "readonly fast", "read");
+```
+
+`BF.EXISTS` 入口：
+
+```c
+int exists = SBChain_Check(sb, s, n);
+```
+
+`BF.ADD` 入口：
+
+```c
+rv = SBChain_Add(sb, s, n);
+```
+
+命令层本身很薄，真正逻辑分别在 `SBChain_Check` 和 `SBChain_Add`。
+
+## 9. RedisBloom 的可扩容 Bloom Chain
+
+RedisBloom 不是只维护一个 Bloom filter，而是维护一个 `SBChain`。
+
+查询：
+
+```c
+int SBChain_Check(const SBChain *sb, const void *data, size_t len) {
+    bloom_hashval hv = SBChain_GetHash(sb, data, len);
+    for (int ii = sb->nfilters - 1; ii >= 0; --ii) {
+        if (bloom_check_h(&sb->filters[ii].inner, hv)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+```
+
+新增：
+
+```c
+int SBChain_Add(SBChain *sb, const void *data, size_t len) {
+    bloom_hashval h = SBChain_GetHash(sb, data, len);
+    for (int ii = sb->nfilters - 1; ii >= 0; --ii) {
+        if (bloom_check_h(&sb->filters[ii].inner, h)) {
+            return 0;
+        }
+    }
+    ...
+}
+```
+
+关键点：
+
+- 先查后加
+- 任意一层命中就认为可能存在
+- 当前层满了时可以继续扩容出新的 filter
+
+所以 RedisBloom 的 Bloom 实现不是单块位图，而是一条可扩展的 filter 链。
+
+## 10. 底层 bloom.c
+
+hash 计算：
+
+```c
+bloom_hashval bloom_calc_hash64(const void *buffer, int len) {
+    bloom_hashval rv;
+    rv.a = MurmurHash64A_Bloom(buffer, len, 0xc6a4a7935bd1e995ULL);
+    rv.b = MurmurHash64A_Bloom(buffer, len, rv.a);
+    return rv;
+}
+```
+
+多个 hash 位置由这两个基值派生：
+
+- `x = (a + i * b) % mod`
+
+check / add 共用一套核心逻辑：
+
+```c
+#define CHECK_ADD_FUNC(T, modExp) \
+    ... \
+    for (i = 0; i < bloom->hashes; i++) { \
+        T x = ((hashval.a + i * hashval.b)) % mod; \
+        if (!test_bit_set_bit(bloom->bf, x, mode)) { \
+            if (mode == MODE_READ) { \
+                return 0; \
+            } \
+            found_unset = 1; \
+        } \
+    } \
+    if (mode == MODE_READ) { \
+        return 1; \
+    } \
+    return found_unset;
+```
 
 含义：
 
-- `m`：bit 数组总长度
-- `n`：预计插入元素数量
-- `k`：hash 函数数量
-- `p`：误判率
+- 读模式：只要发现一个 bit 没置位，就直接返回不存在
+- 写模式：边检查边置位，并判断这次是否为新加入
 
-通常工程里最常见的是：
+## 11. 返回值语义
 
-- 已知 `n` 和目标 `p`
-- 计算需要的 `m` 和 `k`
+`bloom_check_h`：
 
-### 11.4 RedisBloom / Guava 调参理解
+- `1`：可能存在
+- `0`：一定不存在
 
-这些公式和在线计算器，本质上都是围绕同一组参数平衡：
+`bloom_add_h`：
 
-- 数据量越大，所需内存越大
-- 误判率越低，所需内存越大
-- hash 数量不是越多越好，而是存在一个最优值
+- `0`：原来不存在，本次已新增
+- `1`：原来就存在，或发生碰撞
 
-所以实际调参时，通常先确定：
+这也说明：
 
-- 能接受的误判率是多少
-- 峰值元素量大概是多少
-- 愿意为此付出多少内存
+- `BF.EXISTS` 只能给出概率判断
+- `BF.ADD` 自身就带“是否已存在”的判断能力
 
-再决定最终配置。
+## 12. 总结
 
-## 12. 为什么会引入布谷鸟过滤器
+Bloom Filter 的核心价值是：
 
-布隆过滤器一个很明显的限制是：
+- 用很小的内存
+- 很快过滤掉大量一定不存在的数据
 
-- 普通实现基本不支持安全删除
+RedisBloom 在标准 Bloom 思路上又补了一层工程实现：
 
-原因是它只记录 bit 是否为 `1`，不记录这个 `1` 是谁写进去的。
+- Redis 命令封装
+- 可扩容 Bloom chain
+- 底层 hash / bitset 统一 check/add 逻辑
 
-一旦直接删除某个元素对应的 bit，就可能把其他元素也一起“删掉”，导致误判为不存在。
+对当前项目来说，最重要的理解仍然是：
 
-为了解决“支持删除”这个问题，工程上常见的替代方案之一就是：
-
-- 布谷鸟过滤器，Cuckoo Filter
-
-### 11.1 布谷鸟过滤器的思路
-
-它不再像布隆过滤器那样只维护一个 bit 数组，而是：
-
-- 计算元素的指纹 `fingerprint`
-- 把指纹放进两个候选桶中的一个
-- 如果桶满了，就像布谷鸟哈希那样把已有元素踢到另一个位置
-
-因为它存的是“指纹记录”，而不是单纯的 bit，所以它可以：
-
-- 查存在
-- 新增
-- 删除
-
-删除时，只需要把对应桶里的指纹删掉即可，不会像布隆过滤器那样误伤整片 bit。
-
-### 11.2 相比布隆过滤器的特点
-
-优点：
-
-- 支持删除
-- 在一些负载区间下，空间效率也很高
-- 查询仍然很快
-
-代价：
-
-- 实现更复杂
-- 插入逻辑更复杂，可能发生多次踢出
-- 高负载时插入失败处理更麻烦
-
-所以通常可以这样理解：
-
-- 布隆过滤器：实现简单，适合“只增不删”的存在性过滤
-- 布谷鸟过滤器：实现更复杂，但更适合需要删除的场景
-
-### 11.3 什么时候考虑布谷鸟过滤器
-
-如果系统有这些特征，就更适合考虑布谷鸟过滤器：
-
-- 数据会过期或被撤销
-- 需要从过滤器中显式删除元素
-- 不能接受“只增不删”的过滤结构
-
-例如：
-
-- 黑名单 / 白名单动态变更
-- 短链、缓存键、会话等需要下线或失效移除
-- 实时去重集合需要回收旧数据
-
-## 13. 总结
-
-布隆过滤器最适合解决的问题不是“精确存储”，而是：
-
-- 用很少的内存
-- 很快地过滤掉大量一定不存在的数据
-
-所以它的价值在于“减少后续无效工作”，而不是“独立给出最终答案”。
-
-如果场景进一步要求“过滤器里的数据要可删除”，那就需要考虑：
-
-- Counting Bloom Filter
-- 或布谷鸟过滤器
-
-其中布谷鸟过滤器是更常见也更直接的替代思路。
+- Bloom 未命中可以快速判定不存在
+- Bloom 命中不能直接当成存在，仍然要查精确缓存或数据库
