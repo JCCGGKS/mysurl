@@ -160,7 +160,7 @@ func (g *Group) doCall(c *call, key string, fn func() (interface{}, error)) {
 		if e, ok := c.err.(*panicError); ok {
 			if len(c.chans) > 0 {
 				go panic(e)
-				select {}
+				select {} // 阻塞：保证panic顺利执行，且不再执行其余代码
 			} else {
 				panic(e)
 			}
