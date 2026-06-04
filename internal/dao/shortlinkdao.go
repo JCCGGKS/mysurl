@@ -15,6 +15,8 @@ type ShortLinkDAO struct {
 	conn sqlx.SqlConn
 }
 
+
+
 // NewShortLinkDAO creates a DAO instance for short link persistence operations.
 func NewShortLinkDAO(conn sqlx.SqlConn) *ShortLinkDAO {
 	return &ShortLinkDAO{conn: conn}
@@ -22,15 +24,15 @@ func NewShortLinkDAO(conn sqlx.SqlConn) *ShortLinkDAO {
 
 // FindAvailableByHash loads non-deleted short links by url hash for reuse checks.
 func (d *ShortLinkDAO) FindAvailableByHash(ctx context.Context, urlHash string) ([]model.ShortLink, error) {
-	var records []model.ShortLink
+	var rows []model.ShortLink
 	query := `
-SELECT * 
+SELECT short_code, original_url
 FROM short_links
 WHERE url_hash = ?
   AND deleted_at IS NULL
 `
 
-	if err := d.conn.QueryRowsCtx(ctx, &records, query, urlHash); err != nil {
+	if err := d.conn.QueryRowsPartialCtx(ctx, &rows, query, urlHash); err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
 			return nil, nil
 		}
@@ -38,25 +40,36 @@ WHERE url_hash = ?
 		return nil, err
 	}
 
+	records := make([]model.ShortLink, 0, len(rows))
+	for _, row := range rows {
+		records = append(records, model.ShortLink{
+			ShortCode:   row.ShortCode,
+			OriginalURL: row.OriginalURL,
+		})
+	}
+
 	return records, nil
 }
 
 // FindAvailableByCode loads a non-deleted short link by short code.
 func (d *ShortLinkDAO) FindAvailableByCode(ctx context.Context, code string) (*model.ShortLink, error) {
-	var record model.ShortLink
+	var row model.ShortLink
 	query := `
-SELECT * 
+SELECT id, original_url
 FROM short_links
 WHERE short_code = ?
   AND deleted_at IS NULL
 LIMIT 1
 `
 
-	if err := d.conn.QueryRowCtx(ctx, &record, query, code); err != nil {
+	if err := d.conn.QueryRowPartialCtx(ctx, &row, query, code); err != nil {
 		return nil, err
 	}
 
-	return &record, nil
+	return &model.ShortLink{
+		ID:          row.ID,
+		OriginalURL: row.OriginalURL,
+	}, nil
 }
 
 // Insert creates a new short link record with the default active status.

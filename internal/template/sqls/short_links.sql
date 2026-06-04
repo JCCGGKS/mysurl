@@ -12,5 +12,6 @@ CREATE TABLE `short_links` (
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间, 预留字段',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_short_code` (`short_code`),
+  UNIQUE KEY `uk_short_code` (`short_code`,`original_url`),
   KEY `idx_url_hash` (`url_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='短链主表';
