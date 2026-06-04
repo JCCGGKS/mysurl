@@ -175,6 +175,21 @@ h1 = h2 ^ delta
 
 ## 9. 查询
 
+桶内查找指纹的源码：
+
+```c
+static uint8_t *Bucket_Find(CuckooBucket bucket, uint16_t bucketSize, CuckooFingerprint fp) {
+    for (uint16_t ii = 0; ii < bucketSize; ++ii) {
+        if (bucket[ii] == fp) {
+            return bucket + ii;
+        }
+    }
+    return NULL;
+}
+```
+
+这说明一个桶的容量就是 `bucketSize` 个槽位，查询时就是线性扫描这些槽位。
+
 查询逻辑很直接，在 [cuckoo.c](/home/fanqicheng/project/jx/mysurl1/RedisBloom/src/cuckoo.c:145)：
 
 ```c
@@ -193,6 +208,20 @@ static int Filter_Find(const SubCF *filter, const LookupParams *params) {
 - 看指纹是否在其中任意一个桶里
 
 ## 10. 删除
+
+桶内删除指纹的源码：
+
+```c
+static int Bucket_Delete(CuckooBucket bucket, uint16_t bucketSize, CuckooFingerprint fp) {
+    for (uint16_t ii = 0; ii < bucketSize; ii++) {
+        if (bucket[ii] == fp) {
+            bucket[ii] = CUCKOO_NULLFP;
+            return 1;
+        }
+    }
+    return 0;
+}
+```
 
 删除逻辑也只需要查这两个桶，在 [cuckoo.c](/home/fanqicheng/project/jx/mysurl1/RedisBloom/src/cuckoo.c:163)：
 
@@ -216,6 +245,19 @@ bucket[ii] = CUCKOO_NULLFP;
 
 ## 11. 插入与踢出
 
+桶内找空槽的源码：
+
+```c
+static uint8_t *Bucket_FindAvailable(CuckooBucket bucket, uint16_t bucketSize) {
+    for (uint16_t ii = 0; ii < bucketSize; ++ii) {
+        if (bucket[ii] == CUCKOO_NULLFP) {
+            return &bucket[ii];
+        }
+    }
+    return NULL;
+}
+```
+
 插入时会先尝试在两个候选桶里找空槽：
 
 ```c
@@ -224,6 +266,12 @@ if ((slot = Bucket_FindAvailable(&filter->data[loc1], bucketSize)) ||
     return slot;
 }
 ```
+
+所以：
+
+- 每个桶能容纳多少指纹，由 `bucketSize` 决定
+- 桶内没有额外索引结构，就是顺序扫描槽位
+- 查询、删除、找空位三类操作，本质上都是对 `bucketSize` 个槽位做线性扫描
 
 如果两个桶都没有空位，就进入踢出逻辑 `Filter_KOInsert`：
 
@@ -273,6 +321,9 @@ currentFilter->numBuckets = filter->numBuckets * growth;
 - 底层会维护多个 `SubCF`
 - 新的子过滤器会更大
 - 插入失败时可以增长出新的 sub filter
+
+- 正常扩容时：只新增桶数组，不迁移旧数据
+- 后续压缩时：可能把后面子过滤器的数据往前迁移回收空间
 
 ## 13. 优点和代价
 
