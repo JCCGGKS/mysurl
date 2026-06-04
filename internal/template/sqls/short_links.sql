@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS `short_links`;
 CREATE TABLE `short_links` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
   `short_code` varchar(16) DEFAULT NULL COMMENT '短码',
