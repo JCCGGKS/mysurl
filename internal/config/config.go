@@ -3,7 +3,11 @@
 
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	"time"
+
+	"github.com/zeromicro/go-zero/rest"
+)
 
 type Config struct {
 	rest.RestConf
@@ -27,10 +31,19 @@ type MySQLConf struct {
 }
 
 type RedisConf struct {
-	Host     string `json:",optional"`
-	Port     int    `json:",optional"`
-	Password string `json:",optional"`
-	DB       int    `json:",optional"`
+	Host             string `json:",optional"`
+	Port             int    `json:",optional"`
+	Password         string `json:",optional"`
+	DB               int    `json:",optional"`
+	KeyExpireSeconds int    `json:",optional"`
+}
+
+func (c RedisConf) KeyExpire() time.Duration {
+	if c.KeyExpireSeconds <= 0 {
+		return 0
+	}
+
+	return time.Duration(c.KeyExpireSeconds) * time.Second
 }
 
 type ShortConf struct {

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -51,7 +52,7 @@ func (c *ShortLinkCache) GetShortToLong(ctx context.Context, shortCode string) (
 	return &value, nil
 }
 
-func (c *ShortLinkCache) SetShortToLong(ctx context.Context, shortCode string, value ShortToLongCacheValue) error {
+func (c *ShortLinkCache) SetShortToLong(ctx context.Context, shortCode string, value ShortToLongCacheValue, ttl ...time.Duration) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
@@ -61,7 +62,7 @@ func (c *ShortLinkCache) SetShortToLong(ctx context.Context, shortCode string, v
 		return err
 	}
 
-	return c.redis.Set(ctx, shortToLongCacheKey(shortCode), payload, 0).Err()
+	return c.redis.Set(ctx, shortToLongCacheKey(shortCode), payload, resolveTTL(ttl...)).Err()
 }
 
 func (c *ShortLinkCache) GetLongToShort(ctx context.Context, normalizedURL string) (string, error) {
@@ -80,12 +81,12 @@ func (c *ShortLinkCache) GetLongToShort(ctx context.Context, normalizedURL strin
 	return shortCode, nil
 }
 
-func (c *ShortLinkCache) SetLongToShort(ctx context.Context, normalizedURL, shortCode string) error {
+func (c *ShortLinkCache) SetLongToShort(ctx context.Context, normalizedURL, shortCode string, ttl ...time.Duration) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
 
-	return c.redis.Set(ctx, longToShortCacheKey(normalizedURL), shortCode, 0).Err()
+	return c.redis.Set(ctx, longToShortCacheKey(normalizedURL), shortCode, resolveTTL(ttl...)).Err()
 }
 
 func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) (bool, error) {
@@ -216,4 +217,15 @@ func isBloomUnavailableError(err error) bool {
 	}
 
 	return false
+}
+
+func resolveTTL(ttl ...time.Duration) time.Duration {
+	if len(ttl) == 0 {
+		return 0
+	}
+	if ttl[0] <= 0 {
+		return 0
+	}
+
+	return ttl[0]
 }

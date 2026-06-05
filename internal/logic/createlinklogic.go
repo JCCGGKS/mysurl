@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
@@ -52,6 +53,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	originalURL := strings.TrimSpace(req.LongURL)
 	normalizedURL := utils.NormalizeOriginalURL(originalURL)
 	urlHash := utils.HashOriginalURL(normalizedURL)
+	cacheTTL := l.svcCtx.Config.Redis.KeyExpire()
 
 	bloomExists, err := l.svcCtx.ShortLinkCache.BloomExists(l.ctx, normalizedURL)
 	if err != nil {
@@ -77,7 +79,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 			return nil, utils.InternalError("query short link failed: " + findErr.Error())
 		}
 		if findErr == nil {
-			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			l.fillCreateCaches(normalizedURL, record.ShortCode, cacheTTL)
 			l.Infof("create link hit mysql by original_url, normalized_url=%s short_code=%s", normalizedURL, record.ShortCode)
 			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 		}
@@ -100,7 +102,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 			return nil, findErr
 		}
 		if findErr == nil {
-			l.fillCreateCaches(normalizedURL, record.ShortCode)
+			l.fillCreateCaches(normalizedURL, record.ShortCode, cacheTTL)
 			return createLinkResult{
 				shortCode:   record.ShortCode,
 				originalURL: record.OriginalURL,
@@ -113,7 +115,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 			return nil, genErr
 		}
 
-		l.fillCreateCaches(normalizedURL, shortCode)
+		l.fillCreateCaches(normalizedURL, shortCode, cacheTTL)
 		return createLinkResult{
 			shortCode:   shortCode,
 			originalURL: normalizedURL,
@@ -146,8 +148,8 @@ type createLinkResult struct {
 	source      string
 }
 
-func (l *CreateLinkLogic) fillCreateCaches(normalizedURL, shortCode string) {
-	if err := l.svcCtx.ShortLinkCache.SetLongToShort(l.ctx, normalizedURL, shortCode); err != nil {
+func (l *CreateLinkLogic) fillCreateCaches(normalizedURL, shortCode string, ttl time.Duration) {
+	if err := l.svcCtx.ShortLinkCache.SetLongToShort(l.ctx, normalizedURL, shortCode, ttl); err != nil {
 		l.Errorf("set normalized url cache failed: %v", err)
 	}
 	if err := l.svcCtx.ShortLinkCache.BloomAdd(l.ctx, normalizedURL); err != nil {

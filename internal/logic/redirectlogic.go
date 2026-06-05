@@ -47,6 +47,7 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 	if code == "" {
 		return "", utils.BadRequest("code is required")
 	}
+	cacheTTL := l.svcCtx.Config.Redis.KeyExpire()
 
 	cacheValue, cacheErr := l.svcCtx.ShortLinkCache.GetShortToLong(l.ctx, code)
 	if cacheErr != nil {
@@ -75,7 +76,7 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		if err := l.svcCtx.ShortLinkCache.SetShortToLong(l.ctx, code, dao.ShortToLongCacheValue{
 			ID:          record.ID,
 			OriginalURL: record.OriginalURL,
-		}); err != nil {
+		}, cacheTTL); err != nil {
 			l.Errorf("set short code cache failed: %v", err)
 		}
 

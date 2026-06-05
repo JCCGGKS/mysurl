@@ -23,6 +23,7 @@ Redis:
   Port: 6379
   Password: ""
   DB: 0
+  KeyExpireSeconds: 1 # 0 表示永久有效
 Short:
   BaseURL: http://127.0.0.1:8888
   # Provider: mysql_auto_increment
