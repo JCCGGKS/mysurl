@@ -40,3 +40,66 @@ Running 30s test @ http://127.0.0.1:8888
   359952 requests in 30.09s, 99.55MB read
 Requests/sec:  11962.53
 Transfer/sec:      3.31MB
+
+## 结果分析
+
+### 1. `singleflight` 的收益受 `visit_count` 更新方式影响
+
+同步 `incr`：
+
+- 有 `singleflight`：`509.30 req/s`，`197.04ms`
+- 无 `singleflight`：`496.08 req/s`，`202.70ms`
+
+这一组提升很小，说明在同步更新 `visit_count` 的情况下，主链路主要还是被 MySQL 写入拖慢，`singleflight` 合并回源的收益会被掩盖。
+
+异步 `incr`：
+
+- 有 `singleflight`：`12814.38 req/s`，`8.00ms`
+- 无 `singleflight`：`11962.53 req/s`，`8.67ms`
+
+这一组提升就更明显，说明当 `visit_count` 不再阻塞主链路后，`singleflight` 才能更充分发挥作用。
+
+结论：
+
+- `singleflight` 不是主链路固定成本优化，而是并发回源优化
+- 当同步 `incr` 仍在主链路中时，它的整体收益有限
+- 当 `visit_count` 改为异步后，它的价值会明显放大
+
+### 2. `singleflight` 主要优化的是缓存过期后的并发击穿
+
+本轮测试将缓存过期时间设置为 `1s`，意味着：
+
+- 缓存会频繁失效
+- 同一个 `short_code` 在高并发下容易同时触发多次回源
+
+这正是 `singleflight` 的作用场景：
+
+- 只允许一个请求执行真实回源
+- 其它并发请求复用本次结果
+- 减少重复查库和重复回填缓存
+
+因此 `singleflight` 的收益主要体现在：
+
+- 缓存未命中
+- 且同一 key 存在并发访问
+
+如果请求已经命中缓存，`singleflight` 本身并不会带来收益。
+
+### 3. `singleflight` 更适合搭配“缓存 + 异步 incr”
+
+从这组数据看，较合理的组合是：
+
+- 跳转结果走缓存
+- `visit_count` 走 Redis `INCR` 聚合后异步回刷
+- 缓存过期时用 `singleflight` 合并并发回源
+
+这种组合下：
+
+- 主链路避免同步 MySQL 写入
+- 缓存失效时又能减少数据库瞬时压力
+
+## 总结
+
+- `singleflight` 的核心价值是抑制缓存失效时的并发击穿
+- 它更适合与缓存和异步 `visit_count` 一起使用
+- 如果主链路仍保留同步 MySQL `incr`，`singleflight` 的收益会被明显掩盖

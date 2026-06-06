@@ -1,30 +1,59 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is currently a small Go module rooted at `/` with `go.mod`, `README.md`, and `LICENSE`. Treat the repository root as the module root for all Go code. Add application entrypoints under `cmd/<app>/` and keep reusable packages under `internal/` or `pkg/` as the codebase grows. The `vibecodinglearn/` directory is ignored by Git and should not be used for production code or tests.
+
+This repository is a Go service for short links. The module root is the repository root.
+
+- `mysurl1.go`: local entrypoint for running the API service
+- `internal/config`: configuration structs
+- `internal/dao`: MySQL and Redis access
+- `internal/handler`: HTTP handlers
+- `internal/logic`: business logic
+- `internal/model`: table models
+- `internal/schema`: request and response types
+- `internal/svc`: service wiring and dependencies
+- `internal/utils`: shared helpers and background workers
+- `etc/`: runtime config, for example `etc/mysurl1-api.yaml`
+- `wrk/`: benchmark scripts and result notes
+- `internal/template/docs`: design and technical documents
+
+Keep production code under `internal/`. Do not place new application code in `vibecodinglearn/`, `wiki/`, or other note directories.
 
 ## Build, Test, and Development Commands
-Use standard Go tooling from the repository root:
 
-- `go build ./...` builds all packages and catches compile errors.
-- `go test ./...` runs the full test suite.
-- `go test -cover ./...` checks package coverage before opening a PR.
-- `gofmt -w .` formats Go source files in place.
-
-Because the project is still scaffold-level, some commands may report "no packages" until source files are added.
+- `go build ./...`: build all packages and catch compile issues
+- `go test ./...`: run the full test suite
+- `GOCACHE=/tmp/gocache go test ./internal/...`: run internal package tests in restricted environments
+- `gofmt -w .`: format Go source files
+- `go run mysurl1.go -f etc/mysurl1-api.yaml`: run the service locally
+- `bash wrk/run_create.sh` or `bash wrk/run_get.sh`: run local benchmark scripts
 
 ## Coding Style & Naming Conventions
-Follow idiomatic Go. Use tabs for indentation and let `gofmt` own formatting. Keep package names short and lowercase, for example `internal/store` or `pkg/shorturl`. Exported identifiers use `CamelCase`; unexported identifiers use `camelCase`. File names should be lowercase and descriptive, such as `handler.go`, `service_test.go`, or `memory_store.go`.
 
-For schema and API state modeling, do not use a type's zero value as a valid business status. Choose explicit non-zero status values, document the mapping in the PRD, and keep SQL defaults aligned with that mapping.
+Follow idiomatic Go and let `gofmt` control formatting. Use tabs for indentation. Package names stay short and lowercase, such as `dao`, `logic`, and `utils`. Exported names use `CamelCase`; unexported names use `camelCase`.
 
-If a method returns an `error`, the caller must receive and explicitly handle that `error` immediately. Do not ignore returned `error` values, do not rely on later implicit handling, and do not continue using stale `err` variables from earlier calls.
+Prefer clear file names like `redirectlogic.go`, `shortlinkdao.go`, or `visit_flush_worker.go`. If a function returns `error`, callers must handle it immediately.
 
 ## Testing Guidelines
-Write tests with Go’s built-in `testing` package in `*_test.go` files. Prefer table-driven tests for handlers, parsers, and validation logic. Keep tests close to the code they cover, and name them `Test<FunctionOrBehavior>`. Run `go test ./...` locally before committing; use `go test -cover ./...` when changing core logic.
+
+Use Go’s built-in `testing` package in `*_test.go` files. Keep tests close to the code they cover. Name tests as `Test<Behavior>` and prefer table-driven tests for utilities, parsing, and strategy logic.
+
+Run `go test ./...` before committing. For focused local checks, `go test ./internal/...` is acceptable.
 
 ## Commit & Pull Request Guidelines
-Recent history uses short, imperative commit messages, for example `Initial commit` and `docs(.gitignore)`. Keep that style: one focused change per commit, with a concise subject line. For pull requests, include a short summary, test evidence (`go test ./...` output or equivalent), and any relevant issue link. Add request/response examples when API behavior changes.
 
-## Configuration & Repo Hygiene
-Do not commit `.env`, generated binaries, coverage artifacts, or local editor files; `.gitignore` already excludes common Go outputs. Keep README updates in the same PR when introducing new commands, directories, or runtime configuration.
+Recent history uses concise Conventional Commit style, for example:
+
+- `fix(gitignore)`
+- `docs(wrk):新增压测结果报告`
+
+Prefer one focused change per commit. PRs should include:
+
+- a short summary
+- test evidence, such as `go test ./...`
+- config or API examples when behavior changes
+- benchmark context when updating `wrk/` results
+
+## Configuration & Benchmark Notes
+
+Local runtime settings live in `etc/mysurl1-api.yaml`. Redis, MySQL, Bloom, and cache-expire experiments should be documented alongside code changes in `internal/template/docs` or `wrk/`.
