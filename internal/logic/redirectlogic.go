@@ -47,6 +47,16 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		return "", utils.BadRequest("code is required")
 	}
 
+	bloomExists, bloomErr := l.svcCtx.ShortLinkCache.BloomShortCodeExists(l.ctx, code)
+	if bloomErr != nil {
+		l.Errorf("check short code bloom failed: %v", bloomErr)
+	} else if !bloomExists {
+		l.Infof("redirect bloom miss, short_code=%s", code)
+		return "", utils.NotFound("short link not found")
+	} else {
+		l.Infof("redirect bloom possible hit, short_code=%s", code)
+	}
+
 	cacheValue, cacheErr := l.svcCtx.ShortLinkCache.GetShortToLong(l.ctx, code)
 	if cacheErr != nil {
 		l.Errorf("get short code cache failed: %v", cacheErr)
@@ -75,6 +85,9 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		OriginalURL: record.OriginalURL,
 	}); err != nil {
 		l.Errorf("set short code cache failed: %v", err)
+	}
+	if err := l.svcCtx.ShortLinkCache.BloomAddShortCode(l.ctx, code); err != nil {
+		l.Errorf("add short code bloom failed: %v", err)
 	}
 
 	if err := l.svcCtx.ShortLinkDAO.IncrementVisitCount(l.ctx, record.ID); err != nil {

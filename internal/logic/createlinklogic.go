@@ -112,6 +112,9 @@ func (l *CreateLinkLogic) fillCreateCaches(normalizedURL, shortCode string) {
 	if err := l.svcCtx.ShortLinkCache.BloomAdd(l.ctx, normalizedURL); err != nil {
 		l.Errorf("add normalized url bloom failed: %v", err)
 	}
+	if err := l.svcCtx.ShortLinkCache.BloomAddShortCode(l.ctx, shortCode); err != nil {
+		l.Errorf("add short code bloom failed: %v", err)
+	}
 }
 
 func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string) *types.CreateLinkResponse {

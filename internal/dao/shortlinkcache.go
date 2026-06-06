@@ -12,7 +12,10 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-const bloomNormalizedURLKey = "shortlink:bloom:normalized_long_url"
+const (
+	bloomNormalizedURLKey = "shortlink:bloom:normalized_long_url"
+	bloomShortCodeKey     = "shortlink:bloom:short_code"
+)
 
 type ShortToLongCacheValue struct {
 	ID          uint64 `json:"id"`
@@ -107,6 +110,26 @@ func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) 
 	return result, nil
 }
 
+func (c *ShortLinkCache) BloomShortCodeExists(ctx context.Context, shortCode string) (bool, error) {
+	if c == nil || c.redis == nil {
+		return true, nil
+	}
+	if c.bloomDisabled.Load() {
+		return true, nil
+	}
+
+	result, err := c.redis.Do(ctx, "BF.EXISTS", bloomShortCodeKey, shortCode).Bool()
+	if err != nil {
+		if c.handleBloomUnavailable(err) {
+			return true, nil
+		}
+
+		return false, err
+	}
+
+	return result, nil
+}
+
 func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) error {
 	if c == nil || c.redis == nil {
 		return nil
@@ -116,6 +139,25 @@ func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) err
 	}
 
 	err := c.redis.Do(ctx, "BF.ADD", bloomNormalizedURLKey, normalizedURL).Err()
+	if err == nil {
+		return nil
+	}
+	if c.handleBloomUnavailable(err) {
+		return nil
+	}
+
+	return err
+}
+
+func (c *ShortLinkCache) BloomAddShortCode(ctx context.Context, shortCode string) error {
+	if c == nil || c.redis == nil {
+		return nil
+	}
+	if c.bloomDisabled.Load() {
+		return nil
+	}
+
+	err := c.redis.Do(ctx, "BF.ADD", bloomShortCodeKey, shortCode).Err()
 	if err == nil {
 		return nil
 	}
