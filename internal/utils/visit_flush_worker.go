@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"mysurl1/internal/config"
+
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 const (
-	visitFlushInterval = 5 * time.Second
-	visitFlushBatch    = 100
-	visitKeyPrefix     = "shortlink:visit:"
+	visitKeyPrefix = "shortlink:visit:"
 )
 
 type VisitCountCache interface {
@@ -25,25 +25,31 @@ type VisitCountCache interface {
 	DeleteVisitCountKey(ctx context.Context, key string) error
 }
 
-func StartVisitFlushWorker(db sqlx.SqlConn, visitCountCache VisitCountCache) {
+func StartVisitFlushWorker(db sqlx.SqlConn, visitCountCache VisitCountCache, conf config.VisitFlushConf) {
 	if db == nil || IsNil(visitCountCache) {
 		return
 	}
+	if conf.Interval <= 0 {
+		conf.Interval = 5 * time.Second
+	}
+	if conf.Batch <= 0 {
+		conf.Batch = 100
+	}
 
 	go func() {
-		ticker := time.NewTicker(visitFlushInterval)
+		ticker := time.NewTicker(conf.Interval)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if err := flushVisitCounts(context.Background(), db, visitCountCache); err != nil {
+			if err := flushVisitCounts(context.Background(), db, visitCountCache, conf.Batch); err != nil {
 				logx.Errorf("flush visit counts failed: %v", err)
 			}
 		}
 	}()
 }
 
-func flushVisitCounts(ctx context.Context, db sqlx.SqlConn, visitCountCache VisitCountCache) error {
-	keys, _, err := visitCountCache.ScanVisitCountKeys(ctx, 0, visitFlushBatch)
+func flushVisitCounts(ctx context.Context, db sqlx.SqlConn, visitCountCache VisitCountCache, batch int64) error {
+	keys, _, err := visitCountCache.ScanVisitCountKeys(ctx, 0, batch)
 	if err != nil {
 		return err
 	}

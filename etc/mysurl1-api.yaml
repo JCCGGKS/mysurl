@@ -30,3 +30,6 @@ Short:
   # Provider: redis_incr
   Snowflake:
     WorkerID: 1
+VisitFlush:
+  Interval: 5s
+  Batch: 100

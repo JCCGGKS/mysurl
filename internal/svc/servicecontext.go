@@ -43,7 +43,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		serviceContext.ShortLinkCache = dao.NewShortLinkCache(serviceContext.Redis)
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
 		serviceContext.CodeManager = mustNewCodeManager(c.Short, serviceContext.ShortLinkDAO)
-		utils.StartVisitFlushWorker(serviceContext.DB, serviceContext.ShortLinkCache)
+		utils.StartVisitFlushWorker(serviceContext.DB, serviceContext.ShortLinkCache, c.VisitFlush)
 	})
 
 	return serviceContext

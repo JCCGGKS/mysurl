@@ -3,14 +3,19 @@
 
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	"time"
+
+	"github.com/zeromicro/go-zero/rest"
+)
 
 type Config struct {
 	rest.RestConf
-	Stat  StatConf  `json:",optional"`
-	MySQL MySQLConf `json:",optional"`
-	Redis RedisConf `json:",optional"`
-	Short ShortConf `json:",optional"`
+	Stat       StatConf       `json:",optional"`
+	MySQL      MySQLConf      `json:",optional"`
+	Redis      RedisConf      `json:",optional"`
+	Short      ShortConf      `json:",optional"`
+	VisitFlush VisitFlushConf `json:",optional"`
 }
 
 type StatConf struct {
@@ -41,4 +46,9 @@ type ShortConf struct {
 
 type SnowflakeConf struct {
 	WorkerID int64 `json:",optional"`
+}
+
+type VisitFlushConf struct {
+	Interval time.Duration `json:",default=5s"`
+	Batch    int64         `json:",default=100"`
 }
