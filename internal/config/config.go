@@ -14,6 +14,7 @@ type Config struct {
 	Stat       StatConf       `json:",optional"`
 	MySQL      MySQLConf      `json:",optional"`
 	Redis      RedisConf      `json:",optional"`
+	Auth       AuthConf       `json:",optional"`
 	Short      ShortConf      `json:",optional"`
 	VisitFlush VisitFlushConf `json:",optional"`
 }
@@ -36,6 +37,12 @@ type RedisConf struct {
 	Port     int    `json:",optional"`
 	Password string `json:",optional"`
 	DB       int    `json:",optional"`
+}
+
+type AuthConf struct {
+	JWTSecret      string `json:",optional"`
+	ExpireSeconds  int64  `json:",default=86400"`
+	PasswordPepper string `json:",optional"`
 }
 
 type ShortConf struct {

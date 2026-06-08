@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS `short_links`;
 CREATE TABLE `short_links` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint unsigned DEFAULT NULL COMMENT '创建者用户ID, V4新增',
   `short_code` varchar(11) DEFAULT NULL COMMENT '短码',
   `original_url` varchar(250) NOT NULL COMMENT '规范化后的长链',
   `url_hash` char(64) NOT NULL COMMENT '规范化长链的哈希值, 用于辅助查重',
@@ -13,5 +14,6 @@ CREATE TABLE `short_links` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_short_code` (`short_code`),
   UNIQUE KEY `uk_original_url` (`original_url`),
+  KEY `idx_user_id` (`user_id`),
   KEY `idx_url_hash` (`url_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='短链主表';

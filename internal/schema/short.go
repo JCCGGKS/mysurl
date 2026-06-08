@@ -7,6 +7,28 @@ type CreateLinkRequest struct {
 	LongURL string `json:"long_url"`
 }
 
+type RegisterRequest struct {
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type AuthUser struct {
+	ID       uint64 `json:"id"`
+	Username string `json:"username"`
+}
+
+type AuthResponse struct {
+	Token     string   `json:"token"`
+	ExpiresAt int64    `json:"expires_at"`
+	User      AuthUser `json:"user"`
+}
+
 type CreateLinkResponse struct {
 	ShortCode   string `json:"short_code"`
 	ShortURL    string `json:"short_url"`

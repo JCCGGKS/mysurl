@@ -21,6 +21,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodPost,
+				Path:    "/api/v1/auth/login",
+				Handler: LoginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/v1/auth/register",
+				Handler: RegisterHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
 				Path:    "/api/v1/links",
 				Handler: CreateLinkHandler(serverCtx),
 			},

@@ -23,6 +23,10 @@ Redis:
   Port: 6379
   Password: ""
   DB: 0
+Auth:
+  JWTSecret: change-me-in-production
+  ExpireSeconds: 86400
+  PasswordPepper: ""
 Short:
   BaseURL: http://127.0.0.1:8888
   # Provider: mysql_auto_increment
@@ -31,5 +35,5 @@ Short:
   Snowflake:
     WorkerID: 1
 VisitFlush:
-  Interval: 5s
+  Interval: 1m
   Batch: 100

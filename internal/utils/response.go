@@ -72,6 +72,20 @@ func InternalError(message string) *HTTPError {
 	}
 }
 
+func Unauthorized(message string) *HTTPError {
+	return &HTTPError{
+		StatusCode: http.StatusUnauthorized,
+		Message:    message,
+	}
+}
+
+func Conflict(message string) *HTTPError {
+	return &HTTPError{
+		StatusCode: http.StatusConflict,
+		Message:    message,
+	}
+}
+
 func WriteJSONError(w http.ResponseWriter, r *http.Request, err error) {
 	var httpErr *HTTPError
 	if errors.As(err, &httpErr) {

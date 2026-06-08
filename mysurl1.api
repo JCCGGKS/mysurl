@@ -4,6 +4,28 @@ type CreateLinkRequest {
 	LongURL string `json:"long_url"`
 }
 
+type RegisterRequest {
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+
+type LoginRequest {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type AuthUser {
+	ID       uint64 `json:"id"`
+	Username string `json:"username"`
+}
+
+type AuthResponse {
+	Token     string   `json:"token"`
+	ExpiresAt int64    `json:"expires_at"`
+	User      AuthUser `json:"user"`
+}
+
 type CreateLinkResponse {
 	ShortCode   string `json:"short_code"`
 	ShortURL    string `json:"short_url"`
@@ -15,6 +37,12 @@ type RedirectRequest {
 }
 
 service mysurl1-api {
+	@handler RegisterHandler
+	post /api/v1/auth/register (RegisterRequest) returns (AuthResponse)
+
+	@handler LoginHandler
+	post /api/v1/auth/login (LoginRequest) returns (AuthResponse)
+
 	@handler CreateLinkHandler
 	post /api/v1/links (CreateLinkRequest) returns (CreateLinkResponse)
 
