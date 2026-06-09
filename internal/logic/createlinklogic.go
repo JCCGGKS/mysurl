@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -62,6 +63,9 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		l.Errorf("get normalized url cache failed: %v", cacheErr)
 	} else if shortCode != "" {
 		l.Infof("create link hit long->short cache, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, shortCode)
+		if record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL); err == nil {
+			l.setCreateOperationLog(userID, record.ID, record.ShortCode)
+		}
 		return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 	}
 
@@ -73,6 +77,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	if err == nil {
 		l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
 		l.Infof("create link hit mysql by user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
+		l.setCreateOperationLog(userID, record.ID, record.ShortCode)
 		return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 	}
 
@@ -87,6 +92,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 
 			l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
 			l.Infof("create link reuse after duplicate user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
+			l.setCreateOperationLog(userID, record.ID, record.ShortCode)
 			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 		}
 
@@ -96,6 +102,9 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 
 	l.fillCreateCaches(userID, normalizedURL, shortCode)
 	l.Infof("create link generated new short code, provider=%s user_id=%d normalized_url=%s short_code=%s", l.svcCtx.CodeManager.Provider(), userID, normalizedURL, shortCode)
+	if record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL); err == nil {
+		l.setCreateOperationLog(userID, record.ID, record.ShortCode)
+	}
 	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 }
 
@@ -114,4 +123,16 @@ func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string)
 		ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
 		OriginalURL: originalURL,
 	}
+}
+
+func (l *CreateLinkLogic) setCreateOperationLog(userID, targetID uint64, shortCode string) {
+	targetIDCopy := targetID
+	targetCodeCopy := shortCode
+	utils.SetOperationLogPayload(l.ctx, utils.OperationLogPayload{
+		UserID:     userID,
+		Action:     model.UserOperationActionCreateLink,
+		Result:     model.UserOperationResultSuccess,
+		TargetID:   &targetIDCopy,
+		TargetCode: &targetCodeCopy,
+	})
 }

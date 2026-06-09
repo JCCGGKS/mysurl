@@ -14,6 +14,7 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	authMiddleware := middleware.NewAuthMiddleware(serverCtx.Config.Auth)
+	operationLogMiddleware := middleware.NewOperationLogMiddleware(serverCtx.UserOperationLogDAO)
 
 	server.AddRoutes(
 		[]rest.Route{
@@ -25,7 +26,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/api/v1/auth/login",
-				Handler: LoginHandler(serverCtx),
+				Handler: operationLogMiddleware.Handle(LoginHandler(serverCtx)),
 			},
 			{
 				Method:  http.MethodPost,
@@ -35,7 +36,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		},
 	)
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{authMiddleware.Handle},
+		[]rest.Middleware{operationLogMiddleware.Handle, authMiddleware.Handle},
 		rest.Route{
 			Method:  http.MethodPost,
 			Path:    "/api/v1/links",
@@ -48,6 +49,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			Method:  http.MethodGet,
 			Path:    "/api/v1/links/mine",
 			Handler: ListUserLinksHandler(serverCtx),
+		},
+	))
+	server.AddRoutes(rest.WithMiddlewares(
+		[]rest.Middleware{authMiddleware.Handle},
+		rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/v1/user-operation-logs",
+			Handler: ListUserOperationLogsHandler(serverCtx),
 		},
 	))
 }

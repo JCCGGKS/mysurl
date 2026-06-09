@@ -59,6 +59,28 @@ type UserLinkListResponse struct {
 	NextLastID uint64         `json:"next_last_id"`
 }
 
+type ListUserOperationLogsRequest struct {
+	LastID uint64 `form:"last_id,optional"`
+	Limit  int    `form:"limit,optional"`
+}
+
+type UserOperationLogItem struct {
+	ID         uint64 `json:"id"`
+	Action     string `json:"action"`
+	Result     string `json:"result"`
+	TargetID   uint64 `json:"target_id,omitempty"`
+	TargetCode string `json:"target_code,omitempty"`
+	CreatedAt  int64  `json:"created_at"`
+}
+
+type UserOperationLogListResponse struct {
+	Items      []UserOperationLogItem `json:"items"`
+	Total      int64                  `json:"total"`
+	Limit      int                    `json:"limit"`
+	HasMore    bool                   `json:"has_more"`
+	NextLastID uint64                 `json:"next_last_id"`
+}
+
 type RedirectRequest struct {
 	Code string `path:"code"`
 }

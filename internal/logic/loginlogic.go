@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -60,6 +61,12 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.AuthResponse, e
 	if err := utils.ComparePassword(user.PasswordHash, req.Password, authConf.PasswordPepper); err != nil {
 		return nil, utils.Unauthorized("username or password is invalid")
 	}
+
+	utils.SetOperationLogPayload(l.ctx, utils.OperationLogPayload{
+		UserID: user.ID,
+		Action: model.UserOperationActionLogin,
+		Result: model.UserOperationResultSuccess,
+	})
 
 	return utils.BuildAuthResponse(authConf, utils.AuthClaims{
 		UserID:   user.ID,

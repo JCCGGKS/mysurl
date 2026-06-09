@@ -23,14 +23,15 @@ var (
 )
 
 type ServiceContext struct {
-	Config         config.Config
-	DB             sqlx.SqlConn
-	Redis          *goredis.Client
-	ShortLinkCache *dao.ShortLinkCache
-	ShortLinkDAO   *dao.ShortLinkDAO
-	UserDAO        *dao.UserDAO
-	CodeManager    *codestrategy.CodeManager
-	FlightGroup    syncx.SingleFlight
+	Config              config.Config
+	DB                  sqlx.SqlConn
+	Redis               *goredis.Client
+	ShortLinkCache      *dao.ShortLinkCache
+	ShortLinkDAO        *dao.ShortLinkDAO
+	UserDAO             *dao.UserDAO
+	UserOperationLogDAO *dao.UserOperationLogDAO
+	CodeManager         *codestrategy.CodeManager
+	FlightGroup         syncx.SingleFlight
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -44,6 +45,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		serviceContext.ShortLinkCache = dao.NewShortLinkCache(serviceContext.Redis)
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
 		serviceContext.UserDAO = dao.NewUserDAO(serviceContext.DB)
+		serviceContext.UserOperationLogDAO = dao.NewUserOperationLogDAO(serviceContext.DB)
 		serviceContext.CodeManager = mustNewCodeManager(c.Short, serviceContext.ShortLinkDAO)
 		utils.StartVisitFlushWorker(serviceContext.DB, serviceContext.ShortLinkCache, c.VisitFlush)
 	})
