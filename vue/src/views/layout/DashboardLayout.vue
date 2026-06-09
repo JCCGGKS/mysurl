@@ -24,10 +24,9 @@ const navGroups = [
   {
     key: 'users',
     label: '用户管理',
-    caption: '资料与安全设置',
+    caption: '查看用户操作记录',
     children: [
-      { name: 'users-profile', label: '用户资料', caption: '账号信息' },
-      { name: 'users-security', label: '安全设置', caption: '密码与会话' },
+      { name: 'users-operation-log', label: '用户操作日志', caption: '登录与操作留痕' },
     ],
   },
 ]

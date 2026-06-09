@@ -6,8 +6,7 @@ import HomeView from './views/home/HomeView.vue'
 import DashboardLayout from './views/layout/DashboardLayout.vue'
 import CreateView from './views/links/CreateView.vue'
 import LinkListView from './views/links/LinkListView.vue'
-import UserView from './views/users/UserView.vue'
-import UserSecurityView from './views/users/UserSecurityView.vue'
+import UserOperationLogView from './views/users/UserOperationLogView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -58,17 +57,12 @@ const router = createRouter({
         },
         {
           path: 'users',
-          redirect: { name: 'users-profile' },
+          redirect: { name: 'users-operation-log' },
         },
         {
-          path: 'users/profile',
-          name: 'users-profile',
-          component: UserView,
-        },
-        {
-          path: 'users/security',
-          name: 'users-security',
-          component: UserSecurityView,
+          path: 'users/operation-log',
+          name: 'users-operation-log',
+          component: UserOperationLogView,
         },
         {
           path: ':pathMatch(.*)*',
