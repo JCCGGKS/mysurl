@@ -57,9 +57,7 @@ async function submit() {
 
       <div class="auth-head">
         <p class="auth-chip">mysurl1 / Access</p>
-        <p class="section-kicker">Login</p>
         <h2>账号登录</h2>
-        <p class="auth-summary">登录后进入创建页，后续短链请求会自动附带 Bearer token。</p>
         <p class="auth-note">没有账号？<RouterLink class="auth-link" to="/register">去注册</RouterLink></p>
       </div>
 

@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getJson } from '../../services/api'
 import { handleUnauthorized } from '../../router'
@@ -10,6 +10,20 @@ const loading = ref(false)
 const copiedId = ref(0)
 const errorMessage = ref('')
 const links = ref([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(10)
+const shortCode = ref('')
+const originalUrl = ref('')
+const pageSizeOptions = [10, 20, 50]
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+const pageLabel = computed(() => {
+  if (total.value === 0) return '0 / 0'
+  const start = (page.value - 1) * pageSize.value + 1
+  const end = Math.min(page.value * pageSize.value, total.value)
+  return `${start}-${end} / ${total.value}`
+})
 
 onMounted(() => {
   loadLinks()
@@ -20,8 +34,22 @@ async function loadLinks() {
   errorMessage.value = ''
 
   try {
-    const data = await getJson('/api/v1/links/mine', { auth: true })
+    const params = new URLSearchParams({
+      page: String(page.value),
+      page_size: String(pageSize.value),
+    })
+    if (shortCode.value.trim()) {
+      params.set('short_code', shortCode.value.trim())
+    }
+    if (originalUrl.value.trim()) {
+      params.set('original_url', originalUrl.value.trim())
+    }
+
+    const data = await getJson(`/api/v1/links/mine?${params.toString()}`, { auth: true })
     links.value = Array.isArray(data.items) ? data.items : []
+    total.value = Number(data.total || 0)
+    page.value = Number(data.page || page.value)
+    pageSize.value = Number(data.page_size || pageSize.value)
   } catch (error) {
     if (error.status === 401) {
       handleUnauthorized(router)
@@ -29,10 +57,42 @@ async function loadLinks() {
     }
     errorMessage.value = error.message || '加载短链列表失败，请稍后重试'
     links.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
+
+function applyFilters() {
+  page.value = 1
+  loadLinks()
+}
+
+function resetFilters() {
+  shortCode.value = ''
+  originalUrl.value = ''
+  page.value = 1
+  pageSize.value = 10
+  loadLinks()
+}
+
+function goPrevPage() {
+  if (page.value <= 1 || loading.value) return
+  page.value -= 1
+  loadLinks()
+}
+
+function goNextPage() {
+  if (page.value >= totalPages.value || loading.value) return
+  page.value += 1
+  loadLinks()
+}
+
+watch(pageSize, (value, oldValue) => {
+  if (value === oldValue) return
+  page.value = 1
+  loadLinks()
+})
 
 async function copyShortUrl(item) {
   errorMessage.value = ''
@@ -95,48 +155,72 @@ async function writeToClipboard(value) {
 </script>
 
 <template>
-  <section class="dashboard-page">
+  <section class="dashboard-page dashboard-page-wide">
     <header class="dashboard-page-head">
-      <div>
-        <p class="section-kicker">Links</p>
-        <h2>短链列表</h2>
-      </div>
-      <p class="workspace-note">GET /api/v1/links/mine</p>
+      <h2>短链列表</h2>
     </header>
 
-    <section class="workspace-card workspace-card-dashboard">
-      <div class="page-intro">
-        <p class="summary">
-          这里只展示当前登录用户创建过的短链。列表数据来自受保护接口，并按创建时间倒序返回。
-        </p>
-        <div class="inline-signal">
-          <span class="signal-title">列表数量</span>
-          <strong>{{ loading ? '加载中' : `${links.length} 条` }}</strong>
+    <section class="filter-panel">
+      <div class="filter-row">
+        <label class="filter-field">
+          <span class="field-label">短码</span>
+          <input
+            v-model="shortCode"
+            class="text-input filter-input"
+            type="text"
+            placeholder="输入短码筛选"
+            :disabled="loading"
+            @keyup.enter="applyFilters"
+          />
+        </label>
+
+        <label class="filter-field">
+          <span class="field-label">原始链接</span>
+          <input
+            v-model="originalUrl"
+            class="text-input filter-input"
+            type="text"
+            placeholder="输入原始链接筛选"
+            :disabled="loading"
+            @keyup.enter="applyFilters"
+          />
+        </label>
+
+        <label class="filter-field">
+          <span class="field-label">每页条数</span>
+          <select v-model.number="pageSize" class="text-input filter-select" :disabled="loading">
+            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 条</option>
+          </select>
+        </label>
+
+        <div class="filter-actions">
+          <button class="secondary-button" type="button" @click="applyFilters" :disabled="loading">
+            {{ loading ? '查询中...' : '查询' }}
+          </button>
+          <button class="ghost-link" type="button" @click="resetFilters" :disabled="loading">
+            重置
+          </button>
+          <button class="ghost-link" type="button" @click="loadLinks" :disabled="loading">
+          {{ loading ? '刷新中...' : '刷新列表' }}
+          </button>
         </div>
       </div>
+    </section>
 
-      <div class="list-toolbar">
-        <button class="secondary-button" type="button" @click="loadLinks" :disabled="loading">
-          {{ loading ? '刷新中...' : '刷新列表' }}
-        </button>
-      </div>
+    <p v-if="errorMessage" class="feedback feedback-error" role="alert">
+      {{ errorMessage }}
+    </p>
 
-      <p v-if="errorMessage" class="feedback feedback-error" role="alert">
-        {{ errorMessage }}
-      </p>
+    <div v-if="loading" class="list-empty">
+      <h3>正在加载你的短链列表。</h3>
+    </div>
 
-      <div v-if="loading" class="list-empty">
-        <p class="eyebrow">Loading</p>
-        <h3>正在加载你的短链列表。</h3>
-      </div>
+    <div v-else-if="links.length === 0" class="list-empty">
+      <h3>当前筛选条件下没有短链。</h3>
+    </div>
 
-      <div v-else-if="links.length === 0" class="list-empty">
-        <p class="eyebrow">No Links</p>
-        <h3>当前账号下还没有短链。</h3>
-        <p>先去“创建短链”页面生成第一条短链，随后这里会显示对应记录。</p>
-      </div>
-
-      <div v-else class="link-table-shell">
+    <section v-else class="list-content">
+      <div class="link-table-shell">
         <table class="link-table">
           <thead>
             <tr>
@@ -176,6 +260,24 @@ async function writeToClipboard(value) {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="pagination-bar">
+        <p class="pagination-meta">显示 {{ pageLabel }}</p>
+        <div class="pagination-actions">
+          <button class="ghost-link pagination-button" type="button" @click="goPrevPage" :disabled="page <= 1 || loading">
+            上一页
+          </button>
+          <span class="pagination-current">第 {{ page }} / {{ totalPages }} 页</span>
+          <button
+            class="ghost-link pagination-button"
+            type="button"
+            @click="goNextPage"
+            :disabled="page >= totalPages || loading"
+          >
+            下一页
+          </button>
+        </div>
       </div>
     </section>
   </section>

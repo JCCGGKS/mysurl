@@ -44,8 +44,18 @@ type UserLinkItem struct {
 	CreatedAt   int64  `json:"created_at"`
 }
 
+type ListUserLinksRequest struct {
+	Page        int    `form:"page"`
+	PageSize    int    `form:"page_size"`
+	ShortCode   string `form:"short_code"`
+	OriginalURL string `form:"original_url"`
+}
+
 type UserLinkListResponse struct {
-	Items []UserLinkItem `json:"items"`
+	Items    []UserLinkItem `json:"items"`
+	Total    int64          `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
 }
 
 type RedirectRequest struct {

@@ -6,15 +6,23 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
 	"mysurl1/internal/logic"
+	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
 )
 
 func ListUserLinksHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.ListUserLinksRequest
+		if err := httpx.Parse(r, &req); err != nil {
+			utils.WriteJSONError(w, r, utils.BadRequest(err.Error()))
+			return
+		}
+
 		l := logic.NewListUserLinksLogic(r.Context(), svcCtx)
-		resp, err := l.ListUserLinks()
+		resp, err := l.ListUserLinks(&req)
 		if err != nil {
 			utils.WriteJSONError(w, r, err)
 		} else {

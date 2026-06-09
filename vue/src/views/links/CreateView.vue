@@ -119,7 +119,6 @@ async function writeToClipboard(value) {
     <header class="dashboard-page-head">
       <div class="workspace-head">
         <div>
-          <p class="section-kicker">Create Link</p>
           <h2>输入长链并生成短链</h2>
         </div>
         <p class="workspace-note">状态：{{ statusLabel }}</p>
@@ -128,12 +127,8 @@ async function writeToClipboard(value) {
 
     <section class="workspace-card workspace-card-dashboard">
       <div class="page-intro">
-        <p class="summary">
-          在当前账号下创建短链。请求会自动附带 Bearer token，相同长链在同一账号内会复用已有短链。
-        </p>
         <div class="inline-signal">
-          <span class="signal-title">接口地址</span>
-          <strong>POST /api/v1/links</strong>
+          <strong>创建短链</strong>
         </div>
       </div>
 
@@ -165,7 +160,6 @@ async function writeToClipboard(value) {
           <button class="submit-button" type="submit" :disabled="loading">
             {{ loading ? '生成中...' : '生成短链' }}
           </button>
-          <p class="action-hint">相同长链在当前账号下会复用已有短链。</p>
         </div>
       </form>
 
@@ -175,10 +169,7 @@ async function writeToClipboard(value) {
 
       <section v-if="result" class="result-card" aria-live="polite">
         <div class="result-head">
-          <div>
-            <p class="section-kicker">Result</p>
-            <h3>短链已生成</h3>
-          </div>
+          <h3>短链已生成</h3>
           <span class="result-badge">Ready to share</span>
         </div>
 

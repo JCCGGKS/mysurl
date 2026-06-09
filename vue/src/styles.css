@@ -492,6 +492,10 @@ a {
   width: min(1100px, 100%);
 }
 
+.dashboard-page-wide {
+  width: 100%;
+}
+
 .dashboard-page-head {
   margin-bottom: 22px;
 }
@@ -542,6 +546,51 @@ a {
   max-width: 64ch;
 }
 
+.list-page-intro {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.filter-panel {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(84, 58, 34, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 250, 244, 0.64);
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(140px, 180px) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.filter-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.filter-input,
+.filter-select {
+  min-height: 52px;
+}
+
+.filter-select {
+  appearance: none;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .list-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -562,6 +611,11 @@ a {
 .list-empty p:last-child {
   margin-bottom: 0;
   color: var(--muted);
+}
+
+.list-content {
+  display: grid;
+  gap: 16px;
 }
 
 .link-table-shell {
@@ -627,6 +681,30 @@ a {
 .table-button {
   min-width: 76px;
   justify-content: center;
+}
+
+.pagination-bar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pagination-meta,
+.pagination-current {
+  margin: 0;
+  color: var(--muted);
+}
+
+.pagination-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pagination-button {
+  min-height: 44px;
+  padding: 0 18px;
 }
 
 .intro-hero,
@@ -949,9 +1027,24 @@ a {
     padding: 20px 14px 32px;
   }
 
+  .list-page-intro,
   .page-intro,
   .hero-panel {
     grid-template-columns: 1fr;
+  }
+
+  .list-page-intro,
+  .pagination-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filter-row {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    justify-content: flex-start;
   }
 
   .intro-grid,
@@ -1003,7 +1096,9 @@ a {
   }
 
   .action-row,
-  .result-actions {
+  .result-actions,
+  .filter-actions,
+  .pagination-actions {
     flex-direction: column;
     align-items: stretch;
   }

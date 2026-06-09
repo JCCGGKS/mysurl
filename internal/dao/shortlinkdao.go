@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"mysurl1/internal/model"
 	"mysurl1/internal/utils"
@@ -116,6 +117,40 @@ ORDER BY id DESC
 	return records, nil
 }
 
+func (d *ShortLinkDAO) ListByUserIDWithPage(ctx context.Context, userID uint64, shortCode, originalURL string, offset, limit int) ([]model.ShortLink, error) {
+	var records []model.ShortLink
+	query, args := buildUserLinkListQuery(false, userID, shortCode, originalURL)
+	query += "\nORDER BY id DESC\nLIMIT ? OFFSET ?\n"
+	args = append(args, limit, offset)
+
+	if err := d.conn.QueryRowsPartialCtx(ctx, &records, query, args...); err != nil {
+		if errors.Is(err, sqlx.ErrNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return records, nil
+}
+
+func (d *ShortLinkDAO) CountByUserID(ctx context.Context, userID uint64, shortCode, originalURL string) (int64, error) {
+	var result struct {
+		Total int64 `db:"total"`
+	}
+
+	query, args := buildUserLinkListQuery(true, userID, shortCode, originalURL)
+	if err := d.conn.QueryRowPartialCtx(ctx, &result, query, args...); err != nil {
+		if errors.Is(err, sqlx.ErrNotFound) {
+			return 0, nil
+		}
+
+		return 0, err
+	}
+
+	return result.Total, nil
+}
+
 // Insert creates a new short link record with the normalized long URL.
 func (d *ShortLinkDAO) Insert(ctx context.Context, userID *uint64, shortCode, normalizedURL, urlHash string) error {
 	query := `
@@ -201,4 +236,39 @@ func (d *ShortLinkDAO) IncrementVisitCount(ctx context.Context, id uint64) error
 func (d *ShortLinkDAO) AddVisitCount(ctx context.Context, id, delta uint64) error {
 	_, err := d.conn.ExecCtx(ctx, "UPDATE short_links SET visit_count = visit_count + ? WHERE id = ?", delta, id)
 	return err
+}
+
+func buildUserLinkListQuery(countOnly bool, userID uint64, shortCode, originalURL string) (string, []any) {
+	var builder strings.Builder
+	if countOnly {
+		builder.WriteString("SELECT COUNT(1) AS total\n")
+	} else {
+		builder.WriteString(`SELECT
+	id,
+	user_id,
+	short_code,
+	original_url,
+	visit_count,
+	created_at
+`)
+	}
+
+	builder.WriteString(`FROM short_links
+WHERE user_id = ?
+  AND deleted_at IS NULL`)
+
+	args := []any{userID}
+	shortCode = strings.TrimSpace(shortCode)
+	if shortCode != "" {
+		builder.WriteString("\n  AND short_code LIKE ?")
+		args = append(args, "%"+shortCode+"%")
+	}
+
+	originalURL = strings.TrimSpace(originalURL)
+	if originalURL != "" {
+		builder.WriteString("\n  AND original_url LIKE ?")
+		args = append(args, "%"+originalURL+"%")
+	}
+
+	return builder.String(), args
 }

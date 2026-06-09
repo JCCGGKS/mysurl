@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"strings"
 
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
@@ -27,7 +28,7 @@ func NewListUserLinksLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 	}
 }
 
-func (l *ListUserLinksLogic) ListUserLinks() (*types.UserLinkListResponse, error) {
+func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*types.UserLinkListResponse, error) {
 	if l.svcCtx.ShortLinkDAO == nil {
 		return nil, utils.InternalError("short link dao is not configured")
 	}
@@ -37,7 +38,28 @@ func (l *ListUserLinksLogic) ListUserLinks() (*types.UserLinkListResponse, error
 		return nil, utils.Unauthorized("authorization token is required")
 	}
 
-	records, err := l.svcCtx.ShortLinkDAO.ListByUserID(l.ctx, claims.UserID)
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	shortCode := strings.TrimSpace(req.ShortCode)
+	originalURL := strings.TrimSpace(req.OriginalURL)
+	total, err := l.svcCtx.ShortLinkDAO.CountByUserID(l.ctx, claims.UserID, shortCode, originalURL)
+	if err != nil {
+		l.Errorf("count user links failed: %v", err)
+		return nil, utils.InternalError("count user links failed: " + err.Error())
+	}
+
+	offset := (page - 1) * pageSize
+	records, err := l.svcCtx.ShortLinkDAO.ListByUserIDWithPage(l.ctx, claims.UserID, shortCode, originalURL, offset, pageSize)
 	if err != nil {
 		l.Errorf("list user links failed: %v", err)
 		return nil, utils.InternalError("list user links failed: " + err.Error())
@@ -56,6 +78,9 @@ func (l *ListUserLinksLogic) ListUserLinks() (*types.UserLinkListResponse, error
 	}
 
 	return &types.UserLinkListResponse{
-		Items: items,
+		Items:    items,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
 	}, nil
 }

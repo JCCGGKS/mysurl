@@ -56,9 +56,7 @@ async function submit() {
 
       <div class="auth-head">
         <p class="auth-chip">mysurl1 / Join</p>
-        <p class="section-kicker">Register</p>
         <h2>创建账号</h2>
-        <p class="auth-summary">注册成功后会跳转登录页，使用新账号完成认证后再进入创建流程。</p>
         <p class="auth-note">已有账号？<RouterLink class="auth-link" to="/login">去登录</RouterLink></p>
       </div>
 

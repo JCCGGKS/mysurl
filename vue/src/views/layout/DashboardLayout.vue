@@ -8,25 +8,23 @@ const router = useRouter()
 const currentUser = computed(() => getUser())
 
 const directItems = [
-  { name: 'home', label: '首页', caption: '项目介绍' },
+  { name: 'home', label: '首页' },
 ]
 
 const navGroups = [
   {
     key: 'links',
     label: '短链管理',
-    caption: '创建、列表与维护',
     children: [
-      { name: 'links-create', label: '创建短链', caption: '新增短链' },
-      { name: 'links-list', label: '短链列表', caption: '查看记录' },
+      { name: 'links-create', label: '创建短链' },
+      { name: 'links-list', label: '短链列表' },
     ],
   },
   {
     key: 'users',
     label: '用户管理',
-    caption: '查看用户操作记录',
     children: [
-      { name: 'users-operation-log', label: '用户操作日志', caption: '登录与操作留痕' },
+      { name: 'users-operation-log', label: '用户操作日志' },
     ],
   },
 ]
@@ -56,7 +54,6 @@ function logout() {
       <div class="sidebar-brand">
         <p class="sidebar-chip">mysurl1</p>
         <h1>Short Link Console</h1>
-        <p class="sidebar-summary">登录后的所有操作都从这里进入，短链创建会自动关联当前账号。</p>
       </div>
 
       <nav class="sidebar-nav" aria-label="主导航">
@@ -68,7 +65,6 @@ function logout() {
           :class="{ 'is-active': route.name === item.name }"
         >
           <span class="sidebar-link-label">{{ item.label }}</span>
-          <span class="sidebar-link-caption">{{ item.caption }}</span>
         </RouterLink>
 
         <section
@@ -80,7 +76,6 @@ function logout() {
           <button class="sidebar-group-trigger" type="button" @click="toggleGroup(group.key)">
             <span class="sidebar-group-copy">
               <span class="sidebar-link-label">{{ group.label }}</span>
-              <span class="sidebar-link-caption">{{ group.caption }}</span>
             </span>
             <span class="sidebar-group-arrow" aria-hidden="true">▾</span>
           </button>
@@ -94,7 +89,6 @@ function logout() {
               :class="{ 'is-active': route.name === item.name }"
             >
               <span class="sidebar-sublink-label">{{ item.label }}</span>
-              <span class="sidebar-sublink-caption">{{ item.caption }}</span>
             </RouterLink>
           </div>
         </section>
