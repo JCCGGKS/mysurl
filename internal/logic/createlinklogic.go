@@ -6,7 +6,6 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	types "mysurl1/internal/schema"
@@ -52,110 +51,60 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	originalURL := strings.TrimSpace(req.LongURL)
 	normalizedURL := utils.NormalizeOriginalURL(originalURL)
 	urlHash := utils.HashOriginalURL(normalizedURL)
-	var userID *uint64
-	if claims, ok := utils.GetAuthClaims(l.ctx); ok && claims.UserID > 0 {
-		userID = &claims.UserID
+	claims, ok := utils.GetAuthClaims(l.ctx)
+	if !ok || claims.UserID == 0 {
+		return nil, utils.Unauthorized("authorization token is required")
+	}
+	userID := claims.UserID
+
+	shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, userID, normalizedURL)
+	if cacheErr != nil {
+		l.Errorf("get normalized url cache failed: %v", cacheErr)
+	} else if shortCode != "" {
+		l.Infof("create link hit long->short cache, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, shortCode)
+		return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 	}
 
-	bloomExists, err := l.svcCtx.ShortLinkCache.BloomExists(l.ctx, normalizedURL)
+	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
+	if err != nil && !errors.Is(err, sqlx.ErrNotFound) {
+		l.Errorf("query short link by original url failed: %v", err)
+		return nil, utils.InternalError("query short link failed: " + err.Error())
+	}
+	if err == nil {
+		l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
+		l.Infof("create link hit mysql by user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
+		return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
+	}
+
+	shortCode, err = l.svcCtx.CodeManager.GenerateShortCode(l.ctx, &userID, normalizedURL, urlHash)
 	if err != nil {
-		l.Errorf("check normalized url bloom failed: %v", err)
-	} else if bloomExists {
-		l.Infof("create link bloom possible hit, normalized_url=%s", normalizedURL)
-	} else {
-		l.Infof("create link bloom miss, normalized_url=%s", normalizedURL)
-	}
+		if utils.IsDuplicateEntryError(err, "uk_user_original_url") {
+			record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
+			if findErr != nil {
+				l.Errorf("query short link after duplicate original url failed: %v", findErr)
+				return nil, utils.InternalError("query short link failed: " + findErr.Error())
+			}
 
-	if bloomExists {
-		shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, normalizedURL)
-		if cacheErr != nil {
-			l.Errorf("get normalized url cache failed: %v", cacheErr)
-		} else if shortCode != "" {
-			l.Infof("create link hit long->short cache, normalized_url=%s short_code=%s", normalizedURL, shortCode)
-			return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
-		}
-
-		record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, normalizedURL)
-		if findErr != nil && !errors.Is(findErr, sqlx.ErrNotFound) {
-			l.Errorf("query short link by original url failed: %v", findErr)
-			return nil, utils.InternalError("query short link failed: " + findErr.Error())
-		}
-		if findErr == nil {
-			l.fillCreateCaches(normalizedURL, record.ShortCode)
-			l.Infof("create link hit mysql by original_url, normalized_url=%s short_code=%s", normalizedURL, record.ShortCode)
+			l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
+			l.Infof("create link reuse after duplicate user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
 			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
 		}
-	}
 
-	result, fresh, err := l.svcCtx.FlightGroup.DoEx(createSingleflightKey(normalizedURL), func() (any, error) {
-		shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, normalizedURL)
-		if cacheErr != nil {
-			l.Errorf("get normalized url cache in singleflight failed: %v", cacheErr)
-		} else if shortCode != "" {
-			return createLinkResult{
-				shortCode:   shortCode,
-				originalURL: normalizedURL,
-				source:      "long->short cache",
-			}, nil
-		}
-
-		record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, normalizedURL)
-		if findErr != nil && !errors.Is(findErr, sqlx.ErrNotFound) {
-			return nil, findErr
-		}
-		if findErr == nil {
-			l.fillCreateCaches(normalizedURL, record.ShortCode)
-			return createLinkResult{
-				shortCode:   record.ShortCode,
-				originalURL: record.OriginalURL,
-				source:      "mysql by original_url",
-			}, nil
-		}
-
-		shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, userID, normalizedURL, urlHash)
-		if genErr != nil {
-			return nil, genErr
-		}
-
-		l.fillCreateCaches(normalizedURL, shortCode)
-		return createLinkResult{
-			shortCode:   shortCode,
-			originalURL: normalizedURL,
-			source:      fmt.Sprintf("new short code by provider=%s", l.svcCtx.CodeManager.Provider()),
-		}, nil
-	})
-	if err != nil {
-		l.Errorf("create link in singleflight failed: %v", err)
+		l.Errorf("create new short link failed: %v", err)
 		return nil, utils.InternalError("create link failed: " + err.Error())
 	}
 
-	createResult, ok := result.(createLinkResult)
-	if !ok {
-		l.Errorf("invalid create link result type: %T", result)
-		return nil, utils.InternalError("invalid create link result")
-	}
-
-	logSource := createResult.source
-	if !fresh {
-		logSource = fmt.Sprintf("%s via singleflight", logSource)
-	}
-
-	l.Infof("create link hit %s, normalized_url=%s short_code=%s", logSource, normalizedURL, createResult.shortCode)
-	return l.buildCreateLinkResponse(createResult.shortCode, createResult.originalURL), nil
+	l.fillCreateCaches(userID, normalizedURL, shortCode)
+	l.Infof("create link generated new short code, provider=%s user_id=%d normalized_url=%s short_code=%s", l.svcCtx.CodeManager.Provider(), userID, normalizedURL, shortCode)
+	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 }
 
-type createLinkResult struct {
-	shortCode   string
-	originalURL string
-	source      string
-}
-
-func (l *CreateLinkLogic) fillCreateCaches(normalizedURL, shortCode string) {
-	if err := l.svcCtx.ShortLinkCache.SetLongToShort(l.ctx, normalizedURL, shortCode); err != nil {
+func (l *CreateLinkLogic) fillCreateCaches(userID uint64, normalizedURL, shortCode string) {
+	if err := l.svcCtx.ShortLinkCache.SetLongToShort(l.ctx, userID, normalizedURL, shortCode); err != nil {
 		l.Errorf("set normalized url cache failed: %v", err)
 	}
-	if err := l.svcCtx.ShortLinkCache.BloomAdd(l.ctx, normalizedURL); err != nil {
-		l.Errorf("add normalized url bloom failed: %v", err)
+	if err := l.svcCtx.ShortLinkCache.ShortCodeBloomAdd(l.ctx, shortCode); err != nil {
+		l.Errorf("add short code bloom failed: %v", err)
 	}
 }
 
@@ -165,8 +114,4 @@ func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string)
 		ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
 		OriginalURL: originalURL,
 	}
-}
-
-func createSingleflightKey(normalizedURL string) string {
-	return "create:" + normalizedURL
 }

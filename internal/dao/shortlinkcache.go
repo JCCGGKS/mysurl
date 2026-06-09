@@ -13,7 +13,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-const bloomNormalizedURLKey = "shortlink:bloom:normalized_long_url"
+const bloomShortCodeKey = "shortlink:bloom:short_code"
 
 type ShortToLongCacheValue struct {
 	ID          uint64 `json:"id"`
@@ -64,12 +64,12 @@ func (c *ShortLinkCache) SetShortToLong(ctx context.Context, shortCode string, v
 	return c.redis.Set(ctx, shortToLongCacheKey(shortCode), payload, 0).Err()
 }
 
-func (c *ShortLinkCache) GetLongToShort(ctx context.Context, normalizedURL string) (string, error) {
+func (c *ShortLinkCache) GetLongToShort(ctx context.Context, userID uint64, normalizedURL string) (string, error) {
 	if c == nil || c.redis == nil {
 		return "", nil
 	}
 
-	shortCode, err := c.redis.Get(ctx, longToShortCacheKey(normalizedURL)).Result()
+	shortCode, err := c.redis.Get(ctx, longToShortCacheKey(userID, normalizedURL)).Result()
 	if errors.Is(err, goredis.Nil) {
 		return "", nil
 	}
@@ -80,15 +80,15 @@ func (c *ShortLinkCache) GetLongToShort(ctx context.Context, normalizedURL strin
 	return shortCode, nil
 }
 
-func (c *ShortLinkCache) SetLongToShort(ctx context.Context, normalizedURL, shortCode string) error {
+func (c *ShortLinkCache) SetLongToShort(ctx context.Context, userID uint64, normalizedURL, shortCode string) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
 
-	return c.redis.Set(ctx, longToShortCacheKey(normalizedURL), shortCode, 0).Err()
+	return c.redis.Set(ctx, longToShortCacheKey(userID, normalizedURL), shortCode, 0).Err()
 }
 
-func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) (bool, error) {
+func (c *ShortLinkCache) ShortCodeBloomExists(ctx context.Context, shortCode string) (bool, error) {
 	if c == nil || c.redis == nil {
 		return true, nil
 	}
@@ -96,7 +96,7 @@ func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) 
 		return true, nil
 	}
 
-	result, err := c.redis.Do(ctx, "BF.EXISTS", bloomNormalizedURLKey, normalizedURL).Bool()
+	result, err := c.redis.Do(ctx, "BF.EXISTS", bloomShortCodeKey, shortCode).Bool()
 	if err != nil {
 		if c.handleBloomUnavailable(err) {
 			return true, nil
@@ -108,7 +108,7 @@ func (c *ShortLinkCache) BloomExists(ctx context.Context, normalizedURL string) 
 	return result, nil
 }
 
-func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) error {
+func (c *ShortLinkCache) ShortCodeBloomAdd(ctx context.Context, shortCode string) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
@@ -116,7 +116,7 @@ func (c *ShortLinkCache) BloomAdd(ctx context.Context, normalizedURL string) err
 		return nil
 	}
 
-	err := c.redis.Do(ctx, "BF.ADD", bloomNormalizedURLKey, normalizedURL).Err()
+	err := c.redis.Do(ctx, "BF.ADD", bloomShortCodeKey, shortCode).Err()
 	if err == nil {
 		return nil
 	}
@@ -181,8 +181,8 @@ func shortToLongCacheKey(shortCode string) string {
 	return fmt.Sprintf("shortlink:code:%s", shortCode)
 }
 
-func longToShortCacheKey(normalizedURL string) string {
-	return fmt.Sprintf("shortlink:long:%s", normalizedURL)
+func longToShortCacheKey(userID uint64, normalizedURL string) string {
+	return fmt.Sprintf("shortlink:user:%d:long:%s", userID, normalizedURL)
 }
 
 func visitCountKey(id uint64) string {

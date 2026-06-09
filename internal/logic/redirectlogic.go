@@ -55,6 +55,13 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		return l.returnRedirectTarget(code, cacheValue.ID, cacheValue.OriginalURL, "short->long cache")
 	}
 
+	bloomExists, bloomErr := l.svcCtx.ShortLinkCache.ShortCodeBloomExists(l.ctx, code)
+	if bloomErr != nil {
+		l.Errorf("check short code bloom failed: %v", bloomErr)
+	} else if !bloomExists {
+		return "", utils.NotFound("short link not found")
+	}
+
 	result, fresh, err := l.svcCtx.FlightGroup.DoEx(redirectSingleflightKey(code), func() (any, error) {
 		cachedValue, err := l.svcCtx.ShortLinkCache.GetShortToLong(l.ctx, code)
 		if err != nil {
@@ -72,6 +79,9 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 			return nil, err
 		}
 
+		if err := l.svcCtx.ShortLinkCache.ShortCodeBloomAdd(l.ctx, code); err != nil {
+			l.Errorf("add short code bloom failed: %v", err)
+		}
 		if err := l.svcCtx.ShortLinkCache.SetShortToLong(l.ctx, code, dao.ShortToLongCacheValue{
 			ID:          record.ID,
 			OriginalURL: record.OriginalURL,
