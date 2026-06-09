@@ -45,10 +45,10 @@ type UserLinkItem struct {
 }
 
 type ListUserLinksRequest struct {
-	Page        int    `form:"page"`
-	PageSize    int    `form:"page_size"`
-	ShortCode   string `form:"short_code"`
-	OriginalURL string `form:"original_url"`
+	Page        int    `form:"page,optional"`
+	PageSize    int    `form:"page_size,optional"`
+	ShortCode   string `form:"short_code,optional"`
+	OriginalURL string `form:"original_url,optional"`
 }
 
 type UserLinkListResponse struct {

@@ -38,17 +38,7 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		return nil, utils.Unauthorized("authorization token is required")
 	}
 
-	page := req.Page
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize <= 0 {
-		pageSize = 10
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
+	pagination := utils.NormalizePagination(req.Page, req.PageSize)
 
 	shortCode := strings.TrimSpace(req.ShortCode)
 	originalURL := strings.TrimSpace(req.OriginalURL)
@@ -58,8 +48,14 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		return nil, utils.InternalError("count user links failed: " + err.Error())
 	}
 
-	offset := (page - 1) * pageSize
-	records, err := l.svcCtx.ShortLinkDAO.ListByUserIDWithPage(l.ctx, claims.UserID, shortCode, originalURL, offset, pageSize)
+	records, err := l.svcCtx.ShortLinkDAO.ListByUserIDWithPage(
+		l.ctx,
+		claims.UserID,
+		shortCode,
+		originalURL,
+		pagination.Offset(),
+		pagination.PageSize,
+	)
 	if err != nil {
 		l.Errorf("list user links failed: %v", err)
 		return nil, utils.InternalError("list user links failed: " + err.Error())
@@ -80,7 +76,7 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 	return &types.UserLinkListResponse{
 		Items:    items,
 		Total:    total,
-		Page:     page,
-		PageSize: pageSize,
+		Page:     pagination.Page,
+		PageSize: pagination.PageSize,
 	}, nil
 }
