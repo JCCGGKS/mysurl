@@ -14,8 +14,8 @@ const result = ref(null)
 
 const examples = [
   'https://github.com/JCCGGKS/mysurl',
-  'https://xiaolincoding.com/other/offer.html',
-  'https://go-zero.dev/docs/tasks',
+  'https://go-zero.dev/zh-cn/',
+  'https://github.com/golang-jwt/jwt',
 ]
 
 const statusLabel = computed(() => {
