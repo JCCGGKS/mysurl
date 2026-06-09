@@ -33,18 +33,23 @@ INSERT INTO user_operation_logs (
 	return err
 }
 
-func (d *UserOperationLogDAO) CountByUserID(ctx context.Context, userID uint64) (int64, error) {
+func (d *UserOperationLogDAO) CountByUserID(ctx context.Context, userID uint64, action string) (int64, error) {
 	var result struct {
 		Total int64 `db:"total"`
 	}
 
-	query := `
+	var builder strings.Builder
+	builder.WriteString(`
 SELECT COUNT(1) AS total
 FROM user_operation_logs
-WHERE user_id = ?
-`
+WHERE user_id = ?`)
+	args := []any{userID}
+	if action != "" {
+		builder.WriteString("\n  AND action = ?")
+		args = append(args, action)
+	}
 
-	if err := d.conn.QueryRowPartialCtx(ctx, &result, query, userID); err != nil {
+	if err := d.conn.QueryRowPartialCtx(ctx, &result, builder.String(), args...); err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
 			return 0, nil
 		}
@@ -55,7 +60,7 @@ WHERE user_id = ?
 	return result.Total, nil
 }
 
-func (d *UserOperationLogDAO) ListByUserIDWithCursor(ctx context.Context, userID, lastID uint64, limit int) ([]model.UserOperationLog, error) {
+func (d *UserOperationLogDAO) ListByUserIDWithCursor(ctx context.Context, userID, lastID uint64, limit int, action string) ([]model.UserOperationLog, error) {
 	var records []model.UserOperationLog
 	var builder strings.Builder
 	builder.WriteString(`SELECT
@@ -70,6 +75,10 @@ FROM user_operation_logs
 WHERE user_id = ?`)
 
 	args := []any{userID}
+	if action != "" {
+		builder.WriteString("\n  AND action = ?")
+		args = append(args, action)
+	}
 	if lastID > 0 {
 		builder.WriteString("\n  AND id > ?")
 		args = append(args, lastID)

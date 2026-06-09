@@ -2,7 +2,9 @@ package logic
 
 import (
 	"context"
+	"strings"
 
+	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -42,13 +44,18 @@ func (l *ListUserOperationLogsLogic) ListUserOperationLogs(req *types.ListUserOp
 		limit = utils.MaxPageSize
 	}
 
-	total, err := l.svcCtx.UserOperationLogDAO.CountByUserID(l.ctx, claims.UserID)
+	action := strings.TrimSpace(req.Action)
+	if action != "" && action != model.UserOperationActionLogin && action != model.UserOperationActionCreateLink {
+		return nil, utils.BadRequest("action is invalid")
+	}
+
+	total, err := l.svcCtx.UserOperationLogDAO.CountByUserID(l.ctx, claims.UserID, action)
 	if err != nil {
 		l.Errorf("count user operation logs failed: %v", err)
 		return nil, utils.InternalError("count user operation logs failed: " + err.Error())
 	}
 
-	records, err := l.svcCtx.UserOperationLogDAO.ListByUserIDWithCursor(l.ctx, claims.UserID, req.LastID, limit+1)
+	records, err := l.svcCtx.UserOperationLogDAO.ListByUserIDWithCursor(l.ctx, claims.UserID, req.LastID, limit+1, action)
 	if err != nil {
 		l.Errorf("list user operation logs failed: %v", err)
 		return nil, utils.InternalError("list user operation logs failed: " + err.Error())

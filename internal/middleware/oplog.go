@@ -1,19 +1,23 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
-	"mysurl1/internal/dao"
 	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type OperationLogMiddleware struct {
-	dao *dao.UserOperationLogDAO
+type operationLogWriter interface {
+	Insert(ctx context.Context, userID uint64, action, result string, targetID *uint64, targetCode *string) error
 }
 
-func NewOperationLogMiddleware(dao *dao.UserOperationLogDAO) *OperationLogMiddleware {
+type OperationLogMiddleware struct {
+	dao operationLogWriter
+}
+
+func NewOperationLogMiddleware(dao operationLogWriter) *OperationLogMiddleware {
 	return &OperationLogMiddleware{dao: dao}
 }
 

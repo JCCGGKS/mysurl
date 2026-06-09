@@ -59,6 +59,7 @@ type UserLinkListResponse {
 type ListUserOperationLogsRequest {
 	LastID uint64 `form:"last_id,optional"`
 	Limit  int    `form:"limit,optional"`
+	Action string `form:"action,optional"`
 }
 
 type UserOperationLogItem {
