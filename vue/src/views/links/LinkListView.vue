@@ -11,17 +11,19 @@ const copiedId = ref(0)
 const errorMessage = ref('')
 const links = ref([])
 const total = ref(0)
-const page = ref(1)
-const pageSize = ref(10)
+const currentPage = ref(1)
+const limit = ref(10)
+const cursor = ref(0)
+const hasMore = ref(false)
+const cursorHistory = ref([])
 const shortCode = ref('')
 const originalUrl = ref('')
 const pageSizeOptions = [10, 20, 50]
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const pageLabel = computed(() => {
   if (total.value === 0) return '0 / 0'
-  const start = (page.value - 1) * pageSize.value + 1
-  const end = Math.min(page.value * pageSize.value, total.value)
+  const start = (currentPage.value - 1) * limit.value + 1
+  const end = Math.min(start + links.value.length - 1, total.value)
   return `${start}-${end} / ${total.value}`
 })
 
@@ -35,9 +37,11 @@ async function loadLinks() {
 
   try {
     const params = new URLSearchParams({
-      page: String(page.value),
-      page_size: String(pageSize.value),
+      limit: String(limit.value),
     })
+    if (cursor.value > 0) {
+      params.set('last_id', String(cursor.value))
+    }
     if (shortCode.value.trim()) {
       params.set('short_code', shortCode.value.trim())
     }
@@ -48,8 +52,9 @@ async function loadLinks() {
     const data = await getJson(`/api/v1/links/mine?${params.toString()}`, { auth: true })
     links.value = Array.isArray(data.items) ? data.items : []
     total.value = Number(data.total || 0)
-    page.value = Number(data.page || page.value)
-    pageSize.value = Number(data.page_size || pageSize.value)
+    limit.value = Number(data.limit || limit.value)
+    hasMore.value = Boolean(data.has_more)
+    cursor.value = Number(data.next_last_id || 0)
   } catch (error) {
     if (error.status === 401) {
       handleUnauthorized(router)
@@ -58,39 +63,49 @@ async function loadLinks() {
     errorMessage.value = error.message || '加载短链列表失败，请稍后重试'
     links.value = []
     total.value = 0
+    hasMore.value = false
   } finally {
     loading.value = false
   }
 }
 
 function applyFilters() {
-  page.value = 1
+  currentPage.value = 1
+  cursor.value = 0
+  cursorHistory.value = []
   loadLinks()
 }
 
 function resetFilters() {
   shortCode.value = ''
   originalUrl.value = ''
-  page.value = 1
-  pageSize.value = 10
+  currentPage.value = 1
+  limit.value = 10
+  cursor.value = 0
+  cursorHistory.value = []
   loadLinks()
 }
 
 function goPrevPage() {
-  if (page.value <= 1 || loading.value) return
-  page.value -= 1
+  if (currentPage.value <= 1 || loading.value) return
+  cursorHistory.value.pop()
+  cursor.value = cursorHistory.value.length > 0 ? cursorHistory.value[cursorHistory.value.length - 1] : 0
+  currentPage.value -= 1
   loadLinks()
 }
 
 function goNextPage() {
-  if (page.value >= totalPages.value || loading.value) return
-  page.value += 1
+  if (!hasMore.value || loading.value) return
+  cursorHistory.value.push(cursor.value)
+  currentPage.value += 1
   loadLinks()
 }
 
-watch(pageSize, (value, oldValue) => {
+watch(limit, (value, oldValue) => {
   if (value === oldValue) return
-  page.value = 1
+  currentPage.value = 1
+  cursor.value = 0
+  cursorHistory.value = []
   loadLinks()
 })
 
@@ -188,7 +203,7 @@ async function writeToClipboard(value) {
 
         <label class="filter-field">
           <span class="field-label">每页条数</span>
-          <select v-model.number="pageSize" class="text-input filter-select" :disabled="loading">
+          <select v-model.number="limit" class="text-input filter-select" :disabled="loading">
             <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 条</option>
           </select>
         </label>
@@ -224,6 +239,7 @@ async function writeToClipboard(value) {
         <table class="link-table">
           <thead>
             <tr>
+              <th>ID</th>
               <th>短码</th>
               <th>短链</th>
               <th>原始链接</th>
@@ -234,6 +250,7 @@ async function writeToClipboard(value) {
           </thead>
           <tbody>
             <tr v-for="item in links" :key="item.id">
+              <td>{{ item.id }}</td>
               <td>
                 <strong class="table-code">{{ item.short_code }}</strong>
               </td>
@@ -265,15 +282,15 @@ async function writeToClipboard(value) {
       <div class="pagination-bar">
         <p class="pagination-meta">显示 {{ pageLabel }}</p>
         <div class="pagination-actions">
-          <button class="ghost-link pagination-button" type="button" @click="goPrevPage" :disabled="page <= 1 || loading">
+          <button class="ghost-link pagination-button" type="button" @click="goPrevPage" :disabled="currentPage <= 1 || loading">
             上一页
           </button>
-          <span class="pagination-current">第 {{ page }} / {{ totalPages }} 页</span>
+          <span class="pagination-current">第 {{ currentPage }} 页</span>
           <button
             class="ghost-link pagination-button"
             type="button"
             @click="goNextPage"
-            :disabled="page >= totalPages || loading"
+            :disabled="!hasMore || loading"
           >
             下一页
           </button>

@@ -117,11 +117,11 @@ ORDER BY id DESC
 	return records, nil
 }
 
-func (d *ShortLinkDAO) ListByUserIDWithPage(ctx context.Context, userID uint64, shortCode, originalURL string, offset, limit int) ([]model.ShortLink, error) {
+func (d *ShortLinkDAO) ListByUserIDWithCursor(ctx context.Context, userID uint64, shortCode, originalURL string, lastID uint64, limit int) ([]model.ShortLink, error) {
 	var records []model.ShortLink
-	query, args := buildUserLinkListQuery(false, userID, shortCode, originalURL)
-	query += "\nORDER BY id DESC\nLIMIT ? OFFSET ?\n"
-	args = append(args, limit, offset)
+	query, args := buildUserLinkListQuery(false, userID, shortCode, originalURL, lastID)
+	query += "\nORDER BY id ASC\nLIMIT ?\n"
+	args = append(args, limit)
 
 	if err := d.conn.QueryRowsPartialCtx(ctx, &records, query, args...); err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
@@ -139,7 +139,7 @@ func (d *ShortLinkDAO) CountByUserID(ctx context.Context, userID uint64, shortCo
 		Total int64 `db:"total"`
 	}
 
-	query, args := buildUserLinkListQuery(true, userID, shortCode, originalURL)
+	query, args := buildUserLinkListQuery(true, userID, shortCode, originalURL, 0)
 	if err := d.conn.QueryRowPartialCtx(ctx, &result, query, args...); err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
 			return 0, nil
@@ -238,7 +238,7 @@ func (d *ShortLinkDAO) AddVisitCount(ctx context.Context, id, delta uint64) erro
 	return err
 }
 
-func buildUserLinkListQuery(countOnly bool, userID uint64, shortCode, originalURL string) (string, []any) {
+func buildUserLinkListQuery(countOnly bool, userID uint64, shortCode, originalURL string, lastID uint64) (string, []any) {
 	var builder strings.Builder
 	if countOnly {
 		builder.WriteString("SELECT COUNT(1) AS total\n")
@@ -258,6 +258,11 @@ WHERE user_id = ?
   AND deleted_at IS NULL`)
 
 	args := []any{userID}
+	if lastID > 0 {
+		builder.WriteString("\n  AND id > ?")
+		args = append(args, lastID)
+	}
+
 	shortCode = strings.TrimSpace(shortCode)
 	if shortCode != "" {
 		builder.WriteString("\n  AND short_code LIKE ?")

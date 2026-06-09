@@ -45,17 +45,18 @@ type UserLinkItem struct {
 }
 
 type ListUserLinksRequest struct {
-	Page        int    `form:"page,optional"`
-	PageSize    int    `form:"page_size,optional"`
+	LastID      uint64 `form:"last_id,optional"`
+	Limit       int    `form:"limit,optional"`
 	ShortCode   string `form:"short_code,optional"`
 	OriginalURL string `form:"original_url,optional"`
 }
 
 type UserLinkListResponse struct {
-	Items    []UserLinkItem `json:"items"`
-	Total    int64          `json:"total"`
-	Page     int            `json:"page"`
-	PageSize int            `json:"page_size"`
+	Items      []UserLinkItem `json:"items"`
+	Total      int64          `json:"total"`
+	Limit      int            `json:"limit"`
+	HasMore    bool           `json:"has_more"`
+	NextLastID uint64         `json:"next_last_id"`
 }
 
 type RedirectRequest struct {

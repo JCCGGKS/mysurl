@@ -38,7 +38,13 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		return nil, utils.Unauthorized("authorization token is required")
 	}
 
-	pagination := utils.NormalizePagination(req.Page, req.PageSize)
+	limit := req.Limit
+	if limit <= 0 {
+		limit = utils.DefaultPageSize
+	}
+	if limit > utils.MaxPageSize {
+		limit = utils.MaxPageSize
+	}
 
 	shortCode := strings.TrimSpace(req.ShortCode)
 	originalURL := strings.TrimSpace(req.OriginalURL)
@@ -48,20 +54,26 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		return nil, utils.InternalError("count user links failed: " + err.Error())
 	}
 
-	records, err := l.svcCtx.ShortLinkDAO.ListByUserIDWithPage(
+	records, err := l.svcCtx.ShortLinkDAO.ListByUserIDWithCursor(
 		l.ctx,
 		claims.UserID,
 		shortCode,
 		originalURL,
-		pagination.Offset(),
-		pagination.PageSize,
+		req.LastID,
+		limit,
 	)
 	if err != nil {
 		l.Errorf("list user links failed: %v", err)
 		return nil, utils.InternalError("list user links failed: " + err.Error())
 	}
 
+	hasMore := len(records) > limit
+	if hasMore {
+		records = records[:limit]
+	}
+
 	items := make([]types.UserLinkItem, 0, len(records))
+	var nextLastID uint64
 	for _, record := range records {
 		items = append(items, types.UserLinkItem{
 			ID:          record.ID,
@@ -71,12 +83,14 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 			VisitCount:  record.VisitCount,
 			CreatedAt:   record.CreatedAt.Unix(),
 		})
+		nextLastID = record.ID
 	}
 
 	return &types.UserLinkListResponse{
-		Items:    items,
-		Total:    total,
-		Page:     pagination.Page,
-		PageSize: pagination.PageSize,
+		Items:      items,
+		Total:      total,
+		Limit:      limit,
+		HasMore:    hasMore,
+		NextLastID: nextLastID,
 	}, nil
 }
