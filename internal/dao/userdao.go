@@ -19,14 +19,17 @@ func NewUserDAO(conn sqlx.SqlConn) *UserDAO {
 func (d *UserDAO) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 	query := `
-SELECT *
+SELECT
+	id,
+	username,
+	password_hash
 FROM users
 WHERE username = ?
   AND deleted_at IS NULL
 LIMIT 1
 `
 
-	if err := d.conn.QueryRowCtx(ctx, &user, query, username); err != nil {
+	if err := d.conn.QueryRowPartialCtx(ctx, &user, query, username); err != nil {
 		return nil, err
 	}
 

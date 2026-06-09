@@ -24,13 +24,18 @@ func NewShortLinkDAO(conn sqlx.SqlConn) *ShortLinkDAO {
 func (d *ShortLinkDAO) FindAvailableByHash(ctx context.Context, urlHash string) ([]model.ShortLink, error) {
 	var records []model.ShortLink
 	query := `
-SELECT * 
+SELECT
+	id,
+	user_id,
+	short_code,
+	original_url,
+	url_hash
 FROM short_links
 WHERE url_hash = ?
   AND deleted_at IS NULL
 `
 
-	if err := d.conn.QueryRowsCtx(ctx, &records, query, urlHash); err != nil {
+	if err := d.conn.QueryRowsPartialCtx(ctx, &records, query, urlHash); err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
 			return nil, nil
 		}
@@ -45,14 +50,16 @@ WHERE url_hash = ?
 func (d *ShortLinkDAO) FindAvailableByCode(ctx context.Context, code string) (*model.ShortLink, error) {
 	var record model.ShortLink
 	query := `
-SELECT * 
+SELECT
+	id,
+	original_url
 FROM short_links
 WHERE short_code = ?
   AND deleted_at IS NULL
 LIMIT 1
 `
 
-	if err := d.conn.QueryRowCtx(ctx, &record, query, code); err != nil {
+	if err := d.conn.QueryRowPartialCtx(ctx, &record, query, code); err != nil {
 		return nil, err
 	}
 
@@ -63,7 +70,10 @@ LIMIT 1
 func (d *ShortLinkDAO) FindAvailableByOriginalURL(ctx context.Context, userID uint64, normalizedURL string) (*model.ShortLink, error) {
 	var record model.ShortLink
 	query := `
-SELECT *
+SELECT
+	id,
+	short_code,
+	original_url
 FROM short_links
 WHERE user_id = ?
   AND original_url = ?
@@ -71,7 +81,7 @@ WHERE user_id = ?
 LIMIT 1
 `
 
-	if err := d.conn.QueryRowCtx(ctx, &record, query, userID, normalizedURL); err != nil {
+	if err := d.conn.QueryRowPartialCtx(ctx, &record, query, userID, normalizedURL); err != nil {
 		return nil, err
 	}
 
@@ -95,7 +105,7 @@ WHERE user_id = ?
 ORDER BY id DESC
 `
 
-	if err := d.conn.QueryRowsCtx(ctx, &records, query, userID); err != nil {
+	if err := d.conn.QueryRowsPartialCtx(ctx, &records, query, userID); err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
 			return nil, nil
 		}
