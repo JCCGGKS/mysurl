@@ -1,8 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { postJson } from '../services/api'
-import { setAuth } from '../services/auth'
+import { postJson } from '../../services/api'
+import { setAuth } from '../../services/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -40,7 +40,7 @@ async function submit() {
       user: data.user,
     })
 
-    router.push({ name: 'create' })
+    router.push({ name: 'home' })
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -51,18 +51,15 @@ async function submit() {
 
 <template>
   <main class="auth-page">
-    <div class="auth-panel auth-panel-brand">
-      <p class="eyebrow">mysurl1 / Access</p>
-      <h1>登录后开始创建属于你的短链入口。</h1>
-      <p class="summary">
-        当前创建接口要求携带认证 token。登录成功后，前端会自动附带 Bearer token 发起创建请求。
-      </p>
-    </div>
+    <section class="auth-panel auth-panel-form auth-panel-single">
+      <div class="auth-orbit auth-orbit-one"></div>
+      <div class="auth-orbit auth-orbit-two"></div>
 
-    <section class="auth-panel auth-panel-form">
       <div class="auth-head">
+        <p class="auth-chip">mysurl1 / Access</p>
         <p class="section-kicker">Login</p>
         <h2>账号登录</h2>
+        <p class="auth-summary">登录后进入创建页，后续短链请求会自动附带 Bearer token。</p>
         <p class="auth-note">没有账号？<RouterLink class="auth-link" to="/register">去注册</RouterLink></p>
       </div>
 

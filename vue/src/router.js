@@ -1,15 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { clearAuth, getToken } from './services/auth'
-import CreateView from './views/CreateView.vue'
-import LoginView from './views/LoginView.vue'
-import RegisterView from './views/RegisterView.vue'
+import LoginView from './views/auth/LoginView.vue'
+import RegisterView from './views/auth/RegisterView.vue'
+import HomeView from './views/home/HomeView.vue'
+import DashboardLayout from './views/layout/DashboardLayout.vue'
+import CreateView from './views/links/CreateView.vue'
+import LinkListView from './views/links/LinkListView.vue'
+import UserView from './views/users/UserView.vue'
+import UserSecurityView from './views/users/UserSecurityView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       path: '/',
-      redirect: () => (getToken() ? '/create' : '/login'),
+      redirect: () => (getToken() ? '/app/home' : '/login'),
     },
     {
       path: '/login',
@@ -24,10 +29,52 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
     {
-      path: '/create',
-      name: 'create',
-      component: CreateView,
+      path: '/app',
+      component: DashboardLayout,
       meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          redirect: { name: 'home' },
+        },
+        {
+          path: 'home',
+          name: 'home',
+          component: HomeView,
+        },
+        {
+          path: 'links',
+          redirect: { name: 'links-create' },
+        },
+        {
+          path: 'links/create',
+          name: 'links-create',
+          component: CreateView,
+        },
+        {
+          path: 'links/list',
+          name: 'links-list',
+          component: LinkListView,
+        },
+        {
+          path: 'users',
+          redirect: { name: 'users-profile' },
+        },
+        {
+          path: 'users/profile',
+          name: 'users-profile',
+          component: UserView,
+        },
+        {
+          path: 'users/security',
+          name: 'users-security',
+          component: UserSecurityView,
+        },
+        {
+          path: ':pathMatch(.*)*',
+          redirect: { name: 'home' },
+        },
+      ],
     },
   ],
 })
@@ -40,7 +87,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.guestOnly && token) {
-    return { name: 'create' }
+    return { name: 'home' }
   }
 
   return true

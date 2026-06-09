@@ -1,9 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { postJson } from '../services/api'
-import { clearAuth, getUser } from '../services/auth'
-import { handleUnauthorized } from '../router'
+import { postJson } from '../../services/api'
+import { handleUnauthorized } from '../../router'
 
 const router = useRouter()
 
@@ -12,7 +11,6 @@ const loading = ref(false)
 const errorMessage = ref('')
 const copied = ref(false)
 const result = ref(null)
-const currentUser = ref(getUser())
 
 const examples = [
   'https://github.com/JCCGGKS/mysurl',
@@ -89,11 +87,6 @@ function fillExample(example) {
   errorMessage.value = ''
 }
 
-function logout() {
-  clearAuth()
-  router.push({ name: 'login' })
-}
-
 async function writeToClipboard(value) {
   if (navigator.clipboard?.writeText && window.isSecureContext) {
     await navigator.clipboard.writeText(value)
@@ -122,42 +115,26 @@ async function writeToClipboard(value) {
 </script>
 
 <template>
-  <main class="page-shell">
-    <div class="ambient ambient-left"></div>
-    <div class="ambient ambient-right"></div>
-
-    <section class="hero-panel">
-      <header class="hero-copy">
-        <p class="eyebrow">mysurl1 / Shorten with precision</p>
-        <h1>把冗长链接压缩成一枚清晰、可分享的短入口。</h1>
-        <p class="summary">
-          当前页面需要登录后使用。创建请求会自动附带 Bearer token，并将短链归属到当前用户。
-        </p>
-      </header>
-
-      <div class="signal-board">
-        <div class="signal-card">
-          <span class="signal-title">当前用户</span>
-          <strong>{{ currentUser?.username || 'unknown' }}</strong>
-        </div>
-        <div class="signal-card">
-          <span class="signal-title">接口地址</span>
-          <strong>POST /api/v1/links</strong>
-        </div>
-        <div class="signal-card signal-card-actions">
-          <span class="signal-title">会话操作</span>
-          <button class="ghost-link ghost-link-light" type="button" @click="logout">退出登录</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="workspace-card">
+  <section class="dashboard-page">
+    <header class="dashboard-page-head">
       <div class="workspace-head">
         <div>
           <p class="section-kicker">Create Link</p>
           <h2>输入长链并生成短链</h2>
         </div>
         <p class="workspace-note">状态：{{ statusLabel }}</p>
+      </div>
+    </header>
+
+    <section class="workspace-card workspace-card-dashboard">
+      <div class="page-intro">
+        <p class="summary">
+          在当前账号下创建短链。请求会自动附带 Bearer token，相同长链在同一账号内会复用已有短链。
+        </p>
+        <div class="inline-signal">
+          <span class="signal-title">接口地址</span>
+          <strong>POST /api/v1/links</strong>
+        </div>
       </div>
 
       <form class="composer" @submit.prevent="submit">
@@ -230,5 +207,5 @@ async function writeToClipboard(value) {
         </div>
       </section>
     </section>
-  </main>
+  </section>
 </template>

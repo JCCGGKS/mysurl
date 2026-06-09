@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { postJson } from '../services/api'
+import { postJson } from '../../services/api'
 
 const router = useRouter()
 
@@ -50,18 +50,15 @@ async function submit() {
 
 <template>
   <main class="auth-page">
-    <div class="auth-panel auth-panel-brand">
-      <p class="eyebrow">mysurl1 / Join</p>
-      <h1>注册一个新账号，随后登录并开始生成短链。</h1>
-      <p class="summary">
-        首版注册成功后不会自动登录。完成注册后会跳转登录页，由用户主动完成认证。
-      </p>
-    </div>
+    <section class="auth-panel auth-panel-form auth-panel-single">
+      <div class="auth-orbit auth-orbit-one"></div>
+      <div class="auth-orbit auth-orbit-two"></div>
 
-    <section class="auth-panel auth-panel-form">
       <div class="auth-head">
+        <p class="auth-chip">mysurl1 / Join</p>
         <p class="section-kicker">Register</p>
         <h2>创建账号</h2>
+        <p class="auth-summary">注册成功后会跳转登录页，使用新账号完成认证后再进入创建流程。</p>
         <p class="auth-note">已有账号？<RouterLink class="auth-link" to="/login">去登录</RouterLink></p>
       </div>
 
