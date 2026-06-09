@@ -59,18 +59,19 @@ LIMIT 1
 	return &record, nil
 }
 
-// FindAvailableByOriginalURL loads a non-deleted short link by normalized original URL.
-func (d *ShortLinkDAO) FindAvailableByOriginalURL(ctx context.Context, normalizedURL string) (*model.ShortLink, error) {
+// FindAvailableByOriginalURL loads a non-deleted short link by user id and normalized original URL.
+func (d *ShortLinkDAO) FindAvailableByOriginalURL(ctx context.Context, userID uint64, normalizedURL string) (*model.ShortLink, error) {
 	var record model.ShortLink
 	query := `
 SELECT *
 FROM short_links
-WHERE original_url = ?
+WHERE user_id = ?
+  AND original_url = ?
   AND deleted_at IS NULL
 LIMIT 1
 `
 
-	if err := d.conn.QueryRowCtx(ctx, &record, query, normalizedURL); err != nil {
+	if err := d.conn.QueryRowCtx(ctx, &record, query, userID, normalizedURL); err != nil {
 		return nil, err
 	}
 
