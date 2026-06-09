@@ -32,6 +32,19 @@ type CreateLinkResponse {
 	OriginalURL string `json:"original_url"`
 }
 
+type UserLinkItem {
+	ID          uint64 `json:"id"`
+	ShortCode   string `json:"short_code"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+	VisitCount  uint64 `json:"visit_count"`
+	CreatedAt   int64 `json:"created_at"`
+}
+
+type UserLinkListResponse {
+	Items []UserLinkItem `json:"items"`
+}
+
 type RedirectRequest {
 	Code string `path:"code"`
 }
@@ -46,7 +59,9 @@ service mysurl1-api {
 	@handler CreateLinkHandler
 	post /api/v1/links (CreateLinkRequest) returns (CreateLinkResponse)
 
+	@handler ListUserLinksHandler
+	get /api/v1/links/mine returns (UserLinkListResponse)
+
 	@handler RedirectHandler
 	get /:code (RedirectRequest)
 }
-

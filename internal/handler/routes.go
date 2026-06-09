@@ -42,4 +42,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			Handler: CreateLinkHandler(serverCtx),
 		},
 	))
+	server.AddRoutes(rest.WithMiddlewares(
+		[]rest.Middleware{authMiddleware.Handle},
+		rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/v1/links/mine",
+			Handler: ListUserLinksHandler(serverCtx),
+		},
+	))
 }

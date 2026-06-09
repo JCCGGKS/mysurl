@@ -78,6 +78,34 @@ LIMIT 1
 	return &record, nil
 }
 
+// ListByUserID loads non-deleted short links for a specific user ordered by newest first.
+func (d *ShortLinkDAO) ListByUserID(ctx context.Context, userID uint64) ([]model.ShortLink, error) {
+	var records []model.ShortLink
+	query := `
+SELECT
+	id,
+	user_id,
+	short_code,
+	original_url,
+	visit_count,
+	created_at
+FROM short_links
+WHERE user_id = ?
+  AND deleted_at IS NULL
+ORDER BY id DESC
+`
+
+	if err := d.conn.QueryRowsCtx(ctx, &records, query, userID); err != nil {
+		if errors.Is(err, sqlx.ErrNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return records, nil
+}
+
 // Insert creates a new short link record with the normalized long URL.
 func (d *ShortLinkDAO) Insert(ctx context.Context, userID *uint64, shortCode, normalizedURL, urlHash string) error {
 	query := `

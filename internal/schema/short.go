@@ -35,6 +35,19 @@ type CreateLinkResponse struct {
 	OriginalURL string `json:"original_url"`
 }
 
+type UserLinkItem struct {
+	ID          uint64 `json:"id"`
+	ShortCode   string `json:"short_code"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+	VisitCount  uint64 `json:"visit_count"`
+	CreatedAt   int64  `json:"created_at"`
+}
+
+type UserLinkListResponse struct {
+	Items []UserLinkItem `json:"items"`
+}
+
 type RedirectRequest struct {
 	Code string `path:"code"`
 }
