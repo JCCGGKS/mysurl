@@ -13,7 +13,8 @@ const links = ref([])
 const total = ref(0)
 const currentPage = ref(1)
 const limit = ref(10)
-const cursor = ref(0)
+const currentCursor = ref(0)
+const nextCursor = ref(0)
 const hasMore = ref(false)
 const cursorHistory = ref([])
 const shortCode = ref('')
@@ -39,8 +40,8 @@ async function loadLinks() {
     const params = new URLSearchParams({
       limit: String(limit.value),
     })
-    if (cursor.value > 0) {
-      params.set('last_id', String(cursor.value))
+    if (currentCursor.value > 0) {
+      params.set('last_id', String(currentCursor.value))
     }
     if (shortCode.value.trim()) {
       params.set('short_code', shortCode.value.trim())
@@ -54,7 +55,7 @@ async function loadLinks() {
     total.value = Number(data.total || 0)
     limit.value = Number(data.limit || limit.value)
     hasMore.value = Boolean(data.has_more)
-    cursor.value = Number(data.next_last_id || 0)
+    nextCursor.value = Number(data.next_last_id || 0)
   } catch (error) {
     if (error.status === 401) {
       handleUnauthorized(router)
@@ -64,6 +65,7 @@ async function loadLinks() {
     links.value = []
     total.value = 0
     hasMore.value = false
+    nextCursor.value = 0
   } finally {
     loading.value = false
   }
@@ -71,7 +73,8 @@ async function loadLinks() {
 
 function applyFilters() {
   currentPage.value = 1
-  cursor.value = 0
+  currentCursor.value = 0
+  nextCursor.value = 0
   cursorHistory.value = []
   loadLinks()
 }
@@ -81,22 +84,23 @@ function resetFilters() {
   originalUrl.value = ''
   currentPage.value = 1
   limit.value = 10
-  cursor.value = 0
+  currentCursor.value = 0
+  nextCursor.value = 0
   cursorHistory.value = []
   loadLinks()
 }
 
 function goPrevPage() {
   if (currentPage.value <= 1 || loading.value) return
-  cursorHistory.value.pop()
-  cursor.value = cursorHistory.value.length > 0 ? cursorHistory.value[cursorHistory.value.length - 1] : 0
+  currentCursor.value = cursorHistory.value.pop() ?? 0
   currentPage.value -= 1
   loadLinks()
 }
 
 function goNextPage() {
   if (!hasMore.value || loading.value) return
-  cursorHistory.value.push(cursor.value)
+  cursorHistory.value.push(currentCursor.value)
+  currentCursor.value = nextCursor.value
   currentPage.value += 1
   loadLinks()
 }
@@ -104,7 +108,8 @@ function goNextPage() {
 watch(limit, (value, oldValue) => {
   if (value === oldValue) return
   currentPage.value = 1
-  cursor.value = 0
+  currentCursor.value = 0
+  nextCursor.value = 0
   cursorHistory.value = []
   loadLinks()
 })

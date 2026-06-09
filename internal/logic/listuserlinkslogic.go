@@ -60,7 +60,7 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		shortCode,
 		originalURL,
 		req.LastID,
-		limit,
+		limit+1, // 探测是否还有下一页
 	)
 	if err != nil {
 		l.Errorf("list user links failed: %v", err)
