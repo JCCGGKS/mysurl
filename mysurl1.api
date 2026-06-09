@@ -38,11 +38,44 @@ type UserLinkItem {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 	VisitCount  uint64 `json:"visit_count"`
-	CreatedAt   int64 `json:"created_at"`
+	CreatedAt   int64  `json:"created_at"`
+}
+
+type ListUserLinksRequest {
+	LastID      uint64 `form:"last_id,optional"`
+	Limit       int    `form:"limit,optional"`
+	ShortCode   string `form:"short_code,optional"`
+	OriginalURL string `form:"original_url,optional"`
 }
 
 type UserLinkListResponse {
-	Items []UserLinkItem `json:"items"`
+	Items      []UserLinkItem `json:"items"`
+	Total      int64          `json:"total"`
+	Limit      int            `json:"limit"`
+	HasMore    bool           `json:"has_more"`
+	NextLastID uint64         `json:"next_last_id"`
+}
+
+type ListUserOperationLogsRequest {
+	LastID uint64 `form:"last_id,optional"`
+	Limit  int    `form:"limit,optional"`
+}
+
+type UserOperationLogItem {
+	ID         uint64 `json:"id"`
+	Action     string `json:"action"`
+	Result     string `json:"result"`
+	TargetID   uint64 `json:"target_id,omitempty"`
+	TargetCode string `json:"target_code,omitempty"`
+	CreatedAt  int64  `json:"created_at"`
+}
+
+type UserOperationLogListResponse {
+	Items      []UserOperationLogItem `json:"items"`
+	Total      int64                  `json:"total"`
+	Limit      int                    `json:"limit"`
+	HasMore    bool                   `json:"has_more"`
+	NextLastID uint64                 `json:"next_last_id"`
 }
 
 type RedirectRequest {
@@ -60,7 +93,10 @@ service mysurl1-api {
 	post /api/v1/links (CreateLinkRequest) returns (CreateLinkResponse)
 
 	@handler ListUserLinksHandler
-	get /api/v1/links/mine returns (UserLinkListResponse)
+	get /api/v1/links/mine (ListUserLinksRequest) returns (UserLinkListResponse)
+
+	@handler ListUserOperationLogsHandler
+	get /api/v1/user-operation-logs (ListUserOperationLogsRequest) returns (UserOperationLogListResponse)
 
 	@handler RedirectHandler
 	get /:code (RedirectRequest)
