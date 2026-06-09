@@ -1,5 +1,23 @@
 import { getToken } from './auth'
 
+export async function getJson(url, { auth = false } = {}) {
+  const headers = {}
+
+  if (auth) {
+    const token = getToken()
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+  })
+
+  return handleJsonResponse(response)
+}
+
 export async function postJson(url, body, { auth = false } = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -18,6 +36,10 @@ export async function postJson(url, body, { auth = false } = {}) {
     body: JSON.stringify(body),
   })
 
+  return handleJsonResponse(response)
+}
+
+async function handleJsonResponse(response) {
   const payload = await response.json().catch(() => null)
 
   if (!response.ok || payload?.code !== 0 || !payload?.data) {
