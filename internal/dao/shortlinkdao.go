@@ -78,26 +78,27 @@ LIMIT 1
 }
 
 // Insert creates a new short link record with the normalized long URL.
-func (d *ShortLinkDAO) Insert(ctx context.Context, shortCode, normalizedURL, urlHash string) error {
+func (d *ShortLinkDAO) Insert(ctx context.Context, userID *uint64, shortCode, normalizedURL, urlHash string) error {
 	query := `
 INSERT INTO short_links (
+	user_id,
 	short_code,
 	original_url,
 	url_hash
-) VALUES (?, ?, ?)
+) VALUES (?, ?, ?, ?)
 `
 
-	_, err := d.conn.ExecCtx(ctx, query, shortCode, normalizedURL, urlHash)
+	_, err := d.conn.ExecCtx(ctx, query, userID, shortCode, normalizedURL, urlHash)
 	return err
 }
 
 // CreateWithShortCode inserts a short link row with the provided short code.
-func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, shortCode, normalizedURL, urlHash string) (string, error) {
+func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, userID *uint64, shortCode, normalizedURL, urlHash string) (string, error) {
 	if d == nil || d.conn == nil {
 		return "", fmt.Errorf("short link dao is not configured")
 	}
 
-	if err := d.Insert(ctx, shortCode, normalizedURL, urlHash); err != nil {
+	if err := d.Insert(ctx, userID, shortCode, normalizedURL, urlHash); err != nil {
 		return "", err
 	}
 
@@ -106,7 +107,7 @@ func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, shortCode, norma
 
 // CreateWithAutoIncrement inserts a short link row first, then derives and updates
 // the short code from the generated auto increment id in one transaction.
-func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, normalizedURL, urlHash string) (string, error) {
+func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, userID *uint64, normalizedURL, urlHash string) (string, error) {
 	if d == nil || d.conn == nil {
 		return "", fmt.Errorf("short link dao is not configured")
 	}
@@ -116,13 +117,14 @@ func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, normalizedUR
 	err := d.conn.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
 		insertQuery := `
 INSERT INTO short_links (
+	user_id,
 	short_code,
 	original_url,
 	url_hash
-) VALUES (NULL, ?, ?)
+) VALUES (?, NULL, ?, ?)
 `
 
-		result, err := session.ExecCtx(ctx, insertQuery, normalizedURL, urlHash)
+		result, err := session.ExecCtx(ctx, insertQuery, userID, normalizedURL, urlHash)
 		if err != nil {
 			return err
 		}

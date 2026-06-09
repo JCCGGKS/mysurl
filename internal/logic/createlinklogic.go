@@ -52,6 +52,10 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	originalURL := strings.TrimSpace(req.LongURL)
 	normalizedURL := utils.NormalizeOriginalURL(originalURL)
 	urlHash := utils.HashOriginalURL(normalizedURL)
+	var userID *uint64
+	if claims, ok := utils.GetAuthClaims(l.ctx); ok && claims.UserID > 0 {
+		userID = &claims.UserID
+	}
 
 	bloomExists, err := l.svcCtx.ShortLinkCache.BloomExists(l.ctx, normalizedURL)
 	if err != nil {
@@ -108,7 +112,7 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 			}, nil
 		}
 
-		shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, normalizedURL, urlHash)
+		shortCode, genErr := l.svcCtx.CodeManager.GenerateShortCode(l.ctx, userID, normalizedURL, urlHash)
 		if genErr != nil {
 			return nil, genErr
 		}

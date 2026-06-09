@@ -6,6 +6,7 @@ const ShortLinkStatusActive = 1
 
 type ShortLink struct {
 	ID          uint64     `db:"id"`
+	UserID      *uint64    `db:"user_id"`
 	ShortCode   string     `db:"short_code"`
 	OriginalURL string     `db:"original_url"`
 	URLHash     string     `db:"url_hash"`

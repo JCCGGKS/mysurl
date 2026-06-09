@@ -16,7 +16,7 @@ func (g *stubGenerator) Provider() string {
 	return g.provider
 }
 
-func (g *stubGenerator) NextCode(context.Context, string, string) (string, error) {
+func (g *stubGenerator) NextCode(context.Context, *uint64, string, string) (string, error) {
 	if g.err != nil {
 		return "", g.err
 	}
@@ -29,7 +29,7 @@ func TestCodeManagerRegisterOverwrite(t *testing.T) {
 	manager.Register(&stubGenerator{provider: ProviderRedisIncr, code: "old"})
 	manager.Register(&stubGenerator{provider: ProviderRedisIncr, code: "new"})
 
-	code, err := manager.GenerateShortCode(context.Background(), "https://example.com", "hash")
+	code, err := manager.GenerateShortCode(context.Background(), nil, "https://example.com", "hash")
 	if err != nil {
 		t.Fatalf("GenerateShortCode() unexpected error: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestCodeManagerGenerateShortCodePropagatesError(t *testing.T) {
 	wantErr := errors.New("boom")
 	manager.Register(&stubGenerator{provider: ProviderMySQLAutoIncrement, err: wantErr})
 
-	_, err := manager.GenerateShortCode(context.Background(), "https://example.com", "hash")
+	_, err := manager.GenerateShortCode(context.Background(), nil, "https://example.com", "hash")
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("GenerateShortCode() error = %v, want %v", err, wantErr)
 	}

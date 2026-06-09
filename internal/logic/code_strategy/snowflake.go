@@ -31,7 +31,7 @@ func (g *SnowflakeGenerator) Provider() string {
 	return ProviderSnowflake
 }
 
-func (g *SnowflakeGenerator) NextCode(ctx context.Context, normalizedURL, urlHash string) (string, error) {
+func (g *SnowflakeGenerator) NextCode(ctx context.Context, userID *uint64, normalizedURL, urlHash string) (string, error) {
 	if g == nil || g.node == nil {
 		return "", errors.New("snowflake generator node is not configured")
 	}
@@ -45,5 +45,5 @@ func (g *SnowflakeGenerator) NextCode(ctx context.Context, normalizedURL, urlHas
 	}
 
 	shortCode := utils.EncodeBase62(uint64(id))
-	return g.dao.CreateWithShortCode(ctx, shortCode, normalizedURL, urlHash)
+	return g.dao.CreateWithShortCode(ctx, userID, shortCode, normalizedURL, urlHash)
 }

@@ -18,7 +18,7 @@ func TestSnowflakeGeneratorRequiresDAO(t *testing.T) {
 		t.Fatalf("NewSnowflakeGenerator() unexpected error: %v", err)
 	}
 
-	_, err = generator.NextCode(context.Background(), "https://example.com", "hash")
+	_, err = generator.NextCode(context.Background(), nil, "https://example.com", "hash")
 	if err == nil {
 		t.Fatal("NextCode() expected error when dao is nil")
 	}

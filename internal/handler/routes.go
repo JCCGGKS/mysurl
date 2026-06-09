@@ -6,12 +6,15 @@ package handler
 import (
 	"net/http"
 
+	"mysurl1/internal/middleware"
 	"mysurl1/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	authMiddleware := middleware.NewAuthMiddleware(serverCtx.Config.Auth)
+
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -29,11 +32,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/api/v1/auth/register",
 				Handler: RegisterHandler(serverCtx),
 			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/api/v1/links",
-				Handler: CreateLinkHandler(serverCtx),
-			},
 		},
 	)
+	server.AddRoutes(rest.WithMiddlewares(
+		[]rest.Middleware{authMiddleware.Handle},
+		rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/links",
+			Handler: CreateLinkHandler(serverCtx),
+		},
+	))
 }

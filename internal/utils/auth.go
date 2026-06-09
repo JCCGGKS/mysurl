@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type authClaimsContextKey struct{}
 
 type AuthClaims struct {
 	UserID   uint64 `json:"user_id"`
@@ -104,4 +107,61 @@ func GenerateJWT(auth config.AuthConf, claims AuthClaims) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(auth.JWTSecret))
+}
+
+func ParseJWT(auth config.AuthConf, tokenString string) (*AuthClaims, error) {
+	if auth.JWTSecret == "" {
+		return nil, errors.New("jwt secret is empty")
+	}
+	tokenString = strings.TrimSpace(tokenString)
+	if tokenString == "" {
+		return nil, errors.New("jwt token is empty")
+	}
+
+	claims := &AuthClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(auth.JWTSecret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, errors.New("jwt token is invalid")
+	}
+
+	return claims, nil
+}
+
+func ExtractBearerToken(authorization string) string {
+	authorization = strings.TrimSpace(authorization)
+	if authorization == "" {
+		return ""
+	}
+
+	const prefix = "Bearer "
+	if !strings.HasPrefix(authorization, prefix) {
+		return ""
+	}
+
+	return strings.TrimSpace(strings.TrimPrefix(authorization, prefix))
+}
+
+func WithAuthClaims(ctx context.Context, claims *AuthClaims) context.Context {
+	if claims == nil {
+		return ctx
+	}
+
+	return context.WithValue(ctx, authClaimsContextKey{}, claims)
+}
+
+func GetAuthClaims(ctx context.Context) (*AuthClaims, bool) {
+	if ctx == nil {
+		return nil, false
+	}
+
+	claims, ok := ctx.Value(authClaimsContextKey{}).(*AuthClaims)
+	return claims, ok && claims != nil
 }
