@@ -407,7 +407,7 @@ async function writeToClipboard(value) {
                 <th>结果</th>
                 <th>短链</th>
                 <th>短码</th>
-                <th>错误</th>
+                <th>备注</th>
                 <th>操作</th>
               </tr>
             </thead>

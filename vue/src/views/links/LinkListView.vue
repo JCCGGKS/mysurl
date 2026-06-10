@@ -28,6 +28,16 @@ const pageLabel = computed(() => {
   return `${start}-${end} / ${total.value}`
 })
 
+const totalPages = computed(() => {
+  if (total.value === 0) return 0
+  return Math.ceil(total.value / limit.value)
+})
+
+const pageButtons = computed(() => {
+  const reachablePages = Math.min(totalPages.value, currentPage.value + (hasMore.value ? 1 : 0))
+  return Array.from({ length: reachablePages }, (_, index) => index + 1)
+})
+
 onMounted(() => {
   loadLinks()
 })
@@ -103,6 +113,28 @@ function goNextPage() {
   currentCursor.value = nextCursor.value
   currentPage.value += 1
   loadLinks()
+}
+
+function goToPage(page) {
+  if (loading.value || page === currentPage.value) return
+  if (page < 1 || page > totalPages.value) return
+
+  if (page === currentPage.value - 1) {
+    goPrevPage()
+    return
+  }
+
+  if (page === currentPage.value + 1) {
+    goNextPage()
+    return
+  }
+
+  if (page < currentPage.value) {
+    currentCursor.value = page === 1 ? 0 : (cursorHistory.value[page - 1] ?? 0)
+    currentPage.value = page
+    cursorHistory.value = cursorHistory.value.slice(0, Math.max(0, page - 1))
+    loadLinks()
+  }
 }
 
 watch(limit, (value, oldValue) => {
@@ -181,7 +213,7 @@ async function writeToClipboard(value) {
     </header>
 
     <section class="filter-panel">
-      <div class="filter-row">
+      <div class="filter-row link-list-filter-row">
         <label class="filter-field">
           <span class="field-label">短码</span>
           <input
@@ -206,13 +238,6 @@ async function writeToClipboard(value) {
           />
         </label>
 
-        <label class="filter-field">
-          <span class="field-label">每页条数</span>
-          <select v-model.number="limit" class="text-input filter-select" :disabled="loading">
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 条</option>
-          </select>
-        </label>
-
         <div class="filter-actions">
           <button class="secondary-button" type="button" @click="applyFilters" :disabled="loading">
             {{ loading ? '查询中...' : '查询' }}
@@ -221,7 +246,7 @@ async function writeToClipboard(value) {
             重置
           </button>
           <button class="ghost-link" type="button" @click="loadLinks" :disabled="loading">
-          {{ loading ? '刷新中...' : '刷新列表' }}
+            {{ loading ? '刷新中...' : '刷新列表' }}
           </button>
         </div>
       </div>
@@ -287,18 +312,43 @@ async function writeToClipboard(value) {
       <div class="pagination-bar">
         <p class="pagination-meta">显示 {{ pageLabel }}</p>
         <div class="pagination-actions">
-          <button class="ghost-link pagination-button" type="button" @click="goPrevPage" :disabled="currentPage <= 1 || loading">
-            上一页
-          </button>
-          <span class="pagination-current">第 {{ currentPage }} 页</span>
+          <span class="pagination-current">总: {{ totalPages }} 页</span>
           <button
-            class="ghost-link pagination-button"
+            class="ghost-link pagination-button pagination-arrow"
+            type="button"
+            @click="goPrevPage"
+            :disabled="currentPage <= 1 || loading"
+            aria-label="上一页"
+          >
+            &lt;
+          </button>
+          <div class="pagination-page-list">
+            <button
+              v-for="page in pageButtons"
+              :key="page"
+              class="ghost-link pagination-button pagination-page-number"
+              :class="{ 'pagination-page-number-active': page === currentPage }"
+              type="button"
+              @click="goToPage(page)"
+              :disabled="loading || page > currentPage + 1"
+            >
+              {{ page }}
+            </button>
+          </div>
+          <button
+            class="ghost-link pagination-button pagination-arrow"
             type="button"
             @click="goNextPage"
             :disabled="!hasMore || loading"
+            aria-label="下一页"
           >
-            下一页
+            &gt;
           </button>
+          <label class="filter-field operation-log-page-size-field">
+            <select v-model.number="limit" class="text-input filter-select pagination-size-select" :disabled="loading">
+              <option v-for="size in pageSizeOptions" :key="size" :value="size">每页条数：{{ size }}</option>
+            </select>
+          </label>
         </div>
       </div>
     </section>
