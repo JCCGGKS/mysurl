@@ -57,7 +57,6 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		return nil, err
 	}
 
-	l.setCreateOperationLog(claims.UserID, result.ShortCode, model.UserOperationResultSuccess, "")
 	return l.buildCreateLinkResponse(result.ShortCode, result.OriginalURL), nil
 }
 
@@ -81,6 +80,7 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 
 	shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, userID, normalizedURL)
 	if cacheErr == nil && shortCode != "" {
+		l.setCreateOperationLog(userID, shortCode, model.UserOperationResultSuccess, "cache hit")
 		l.Infof("create link hit long->short cache, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, shortCode)
 		return &createLinkResult{
 			ShortCode:   shortCode,
@@ -91,6 +91,7 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
 	if err == nil && record != nil {
 		l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
+		l.setCreateOperationLog(userID, record.ShortCode, model.UserOperationResultSuccess, "database hit")
 		l.Infof("create link hit mysql by user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
 		return &createLinkResult{
 			ShortCode:   record.ShortCode,
@@ -99,12 +100,13 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 	}
 
 	shortCode, err = l.createNewLink(userID, normalizedURL, urlHash)
-	if err!=nil{
+	if err != nil {
 		l.Errorf("create new short link failed: %v", err)
 		return nil, utils.InternalError("create link failed: " + err.Error())
 	}
 
 	l.fillCreateCaches(userID, normalizedURL, shortCode)
+	l.setCreateOperationLog(userID, shortCode, model.UserOperationResultSuccess, "create success")
 	l.Infof("create link generated new short code, provider=%s user_id=%d normalized_url=%s short_code=%s", l.shortCodeProvider(), userID, normalizedURL, shortCode)
 	return &createLinkResult{
 		ShortCode:   shortCode,

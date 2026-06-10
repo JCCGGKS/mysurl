@@ -18,12 +18,19 @@ const hasMore = ref(false)
 const cursorHistory = ref([])
 const pageSizeOptions = [10, 20, 50]
 const selectedAction = ref('')
+const selectedResult = ref('')
 
 const actionOptions = [
   { value: '', label: '全部类型' },
   { value: 'login', label: '登录' },
   { value: 'create_link', label: '创建短链' },
   { value: 'create_link_batch', label: '批量创建短链' },
+]
+
+const resultOptions = [
+  { value: '', label: '全部结果' },
+  { value: 'success', label: '成功' },
+  { value: 'failed', label: '失败' },
 ]
 
 const pageLabel = computed(() => {
@@ -67,6 +74,9 @@ async function loadLogs() {
     if (selectedAction.value) {
       params.set('action', selectedAction.value)
     }
+    if (selectedResult.value) {
+      params.set('result', selectedResult.value)
+    }
 
     const data = await getJson(`/api/v1/user-operation-logs?${params.toString()}`, { auth: true })
     logs.value = Array.isArray(data.items) ? data.items : []
@@ -109,6 +119,7 @@ function applyFilters() {
 
 function resetFilters() {
   selectedAction.value = ''
+  selectedResult.value = ''
   limit.value = 10
   resetPagination()
   loadLogs()
@@ -200,6 +211,15 @@ function formatDate(timestamp) {
           <span class="field-label">类型</span>
           <select v-model="selectedAction" class="text-input filter-select" :disabled="loading">
             <option v-for="option in actionOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="filter-field operation-log-size-field">
+          <span class="field-label">结果</span>
+          <select v-model="selectedResult" class="text-input filter-select" :disabled="loading">
+            <option v-for="option in resultOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
           </select>

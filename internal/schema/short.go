@@ -84,6 +84,7 @@ type ListUserOperationLogsRequest struct {
 	LastID uint64 `form:"last_id,optional"`
 	Limit  int    `form:"limit,optional"`
 	Action string `form:"action,optional"`
+	Result string `form:"result,optional"`
 }
 
 type UserOperationLogItem struct {

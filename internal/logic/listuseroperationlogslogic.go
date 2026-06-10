@@ -45,20 +45,20 @@ func (l *ListUserOperationLogsLogic) ListUserOperationLogs(req *types.ListUserOp
 	}
 
 	action := strings.TrimSpace(req.Action)
-	if action != "" &&
-		action != model.UserOperationActionLogin &&
-		action != model.UserOperationActionCreateLink &&
-		action != model.UserOperationActionCreateLinkBatch {
-		return nil, utils.BadRequest("action is invalid")
+	result := strings.TrimSpace(req.Result)
+	if result != "" &&
+		result != model.UserOperationResultSuccess &&
+		result != model.UserOperationResultFailed {
+		return nil, utils.BadRequest("result is invalid")
 	}
 
-	total, err := l.svcCtx.UserOperationLogDAO.CountByUserID(l.ctx, claims.UserID, action)
+	total, err := l.svcCtx.UserOperationLogDAO.CountByUserID(l.ctx, claims.UserID, action, result)
 	if err != nil {
 		l.Errorf("count user operation logs failed: %v", err)
 		return nil, utils.InternalError("count user operation logs failed: " + err.Error())
 	}
 
-	records, err := l.svcCtx.UserOperationLogDAO.ListByUserIDWithCursor(l.ctx, claims.UserID, req.LastID, limit+1, action)
+	records, err := l.svcCtx.UserOperationLogDAO.ListByUserIDWithCursor(l.ctx, claims.UserID, req.LastID, limit+1, action, result)
 	if err != nil {
 		l.Errorf("list user operation logs failed: %v", err)
 		return nil, utils.InternalError("list user operation logs failed: " + err.Error())
