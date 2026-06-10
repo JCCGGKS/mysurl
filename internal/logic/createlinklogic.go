@@ -23,6 +23,12 @@ type CreateLinkLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+type createLinkResult struct {
+	RecordID    uint64
+	ShortCode   string
+	OriginalURL string
+}
+
 func NewCreateLinkLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CreateLinkLogic {
 	return &CreateLinkLogic{
 		Logger: logx.WithContext(ctx),
@@ -49,24 +55,37 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		return nil, utils.BadRequest(err.Error())
 	}
 
-	originalURL := strings.TrimSpace(req.LongURL)
-	normalizedURL := utils.NormalizeOriginalURL(originalURL)
-	urlHash := utils.HashOriginalURL(normalizedURL)
 	claims, ok := utils.GetAuthClaims(l.ctx)
 	if !ok || claims.UserID == 0 {
 		return nil, utils.Unauthorized("authorization token is required")
 	}
-	userID := claims.UserID
+	result, err := l.createOrReuseLink(claims.UserID, req.LongURL)
+	if err != nil {
+		return nil, err
+	}
+
+	l.setCreateOperationLog(claims.UserID, result.RecordID, result.ShortCode)
+	return l.buildCreateLinkResponse(result.ShortCode, result.OriginalURL), nil
+}
+
+func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*createLinkResult, error) {
+	originalURL := strings.TrimSpace(longURL)
+	normalizedURL := utils.NormalizeOriginalURL(originalURL)
+	urlHash := utils.HashOriginalURL(normalizedURL)
 
 	shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, userID, normalizedURL)
 	if cacheErr != nil {
 		l.Errorf("get normalized url cache failed: %v", cacheErr)
 	} else if shortCode != "" {
 		l.Infof("create link hit long->short cache, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, shortCode)
-		if record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL); err == nil {
-			l.setCreateOperationLog(userID, record.ID, record.ShortCode)
+		record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
+		if err == nil {
+			return &createLinkResult{
+				RecordID:    record.ID,
+				ShortCode:   record.ShortCode,
+				OriginalURL: record.OriginalURL,
+			}, nil
 		}
-		return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
 	}
 
 	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
@@ -77,11 +96,14 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 	if err == nil {
 		l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
 		l.Infof("create link hit mysql by user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
-		l.setCreateOperationLog(userID, record.ID, record.ShortCode)
-		return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
+		return &createLinkResult{
+			RecordID:    record.ID,
+			ShortCode:   record.ShortCode,
+			OriginalURL: record.OriginalURL,
+		}, nil
 	}
 
-	shortCode, err = l.svcCtx.CodeManager.GenerateShortCode(l.ctx, &userID, normalizedURL, urlHash)
+	shortCode, err = l.createNewLink(userID, normalizedURL, urlHash)
 	if err != nil {
 		if utils.IsDuplicateEntryError(err, "uk_user_original_url") {
 			record, findErr := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
@@ -92,8 +114,11 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 
 			l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
 			l.Infof("create link reuse after duplicate user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
-			l.setCreateOperationLog(userID, record.ID, record.ShortCode)
-			return l.buildCreateLinkResponse(record.ShortCode, record.OriginalURL), nil
+			return &createLinkResult{
+				RecordID:    record.ID,
+				ShortCode:   record.ShortCode,
+				OriginalURL: record.OriginalURL,
+			}, nil
 		}
 
 		l.Errorf("create new short link failed: %v", err)
@@ -102,10 +127,33 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 
 	l.fillCreateCaches(userID, normalizedURL, shortCode)
 	l.Infof("create link generated new short code, provider=%s user_id=%d normalized_url=%s short_code=%s", l.svcCtx.CodeManager.Provider(), userID, normalizedURL, shortCode)
-	if record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL); err == nil {
-		l.setCreateOperationLog(userID, record.ID, record.ShortCode)
+	record, err = l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
+	if err != nil {
+		l.Errorf("query short link after create failed: %v", err)
+		return nil, utils.InternalError("query short link failed: " + err.Error())
 	}
-	return l.buildCreateLinkResponse(shortCode, normalizedURL), nil
+
+	return &createLinkResult{
+		RecordID:    record.ID,
+		ShortCode:   record.ShortCode,
+		OriginalURL: record.OriginalURL,
+	}, nil
+}
+
+func (l *CreateLinkLogic) createNewLink(userID uint64, normalizedURL, urlHash string) (string, error) {
+	if l.svcCtx.CodeManager.IsMySQLAutoIncrement() {
+		return l.svcCtx.ShortLinkDAO.CreateWithAutoIncrement(l.ctx, &userID, normalizedURL, urlHash)
+	}
+
+	shortCode, err := l.svcCtx.CodeManager.NextCode(l.ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := l.svcCtx.ShortLinkDAO.Insert(l.ctx, &userID, shortCode, normalizedURL, urlHash); err != nil {
+		return "", err
+	}
+
+	return shortCode, nil
 }
 
 func (l *CreateLinkLogic) fillCreateCaches(userID uint64, normalizedURL, shortCode string) {

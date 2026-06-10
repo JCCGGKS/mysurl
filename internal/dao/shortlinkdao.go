@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	codestrategy "mysurl1/internal/logic/code_strategy"
 	"mysurl1/internal/model"
-	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -166,19 +166,6 @@ INSERT INTO short_links (
 	return err
 }
 
-// CreateWithShortCode inserts a short link row with the provided short code.
-func (d *ShortLinkDAO) CreateWithShortCode(ctx context.Context, userID *uint64, shortCode, normalizedURL, urlHash string) (string, error) {
-	if d == nil || d.conn == nil {
-		return "", fmt.Errorf("short link dao is not configured")
-	}
-
-	if err := d.Insert(ctx, userID, shortCode, normalizedURL, urlHash); err != nil {
-		return "", err
-	}
-
-	return shortCode, nil
-}
-
 // CreateWithAutoIncrement inserts a short link row first, then derives and updates
 // the short code from the generated auto increment id in one transaction.
 func (d *ShortLinkDAO) CreateWithAutoIncrement(ctx context.Context, userID *uint64, normalizedURL, urlHash string) (string, error) {
@@ -211,7 +198,7 @@ INSERT INTO short_links (
 			return fmt.Errorf("invalid short link id: %d", id)
 		}
 
-		shortCode = utils.EncodeBase62(uint64(id))
+		shortCode = codestrategy.BuildCodeFromID(uint64(id))
 		updateQuery := "UPDATE short_links SET short_code = ? WHERE id = ?"
 		if _, err := session.ExecCtx(ctx, updateQuery, shortCode, id); err != nil {
 			return err

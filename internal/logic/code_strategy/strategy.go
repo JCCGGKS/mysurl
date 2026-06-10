@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"mysurl1/internal/utils"
 )
 
 const (
@@ -12,15 +14,15 @@ const (
 	ProviderSnowflake          = "snowflake"
 )
 
-type CodeGenerator interface {
+type Generator interface {
 	Provider() string
-	NextCode(ctx context.Context, userID *uint64, normalizedURL, urlHash string) (string, error)
+	NextCode(ctx context.Context) (string, error)
 }
 
 type CodeManager struct {
 	provider   string
 	mu         sync.RWMutex
-	generators map[string]CodeGenerator
+	generators map[string]Generator
 }
 
 func NewCodeManager(provider string) *CodeManager {
@@ -30,11 +32,11 @@ func NewCodeManager(provider string) *CodeManager {
 
 	return &CodeManager{
 		provider:   provider,
-		generators: make(map[string]CodeGenerator),
+		generators: make(map[string]Generator),
 	}
 }
 
-func (m *CodeManager) Register(generator CodeGenerator) {
+func (m *CodeManager) Register(generator Generator) {
 	if generator == nil {
 		return
 	}
@@ -45,7 +47,7 @@ func (m *CodeManager) Register(generator CodeGenerator) {
 	m.generators[generator.Provider()] = generator
 }
 
-func (m *CodeManager) Get(provider string) (CodeGenerator, error) {
+func (m *CodeManager) Get(provider string) (Generator, error) {
 	if provider == "" {
 		provider = ProviderMySQLAutoIncrement
 	}
@@ -69,9 +71,16 @@ func (m *CodeManager) Provider() string {
 	return m.provider
 }
 
-func (m *CodeManager) GenerateShortCode(ctx context.Context, userID *uint64, normalizedURL, urlHash string) (string, error) {
+func (m *CodeManager) IsMySQLAutoIncrement() bool {
+	return m.Provider() == ProviderMySQLAutoIncrement
+}
+
+func (m *CodeManager) NextCode(ctx context.Context) (string, error) {
 	if m == nil {
 		return "", fmt.Errorf("code manager is nil")
+	}
+	if m.IsMySQLAutoIncrement() {
+		return "", fmt.Errorf("provider %s does not support pre-generated short codes", ProviderMySQLAutoIncrement)
 	}
 
 	generator, err := m.Get(m.provider)
@@ -79,5 +88,9 @@ func (m *CodeManager) GenerateShortCode(ctx context.Context, userID *uint64, nor
 		return "", err
 	}
 
-	return generator.NextCode(ctx, userID, normalizedURL, urlHash)
+	return generator.NextCode(ctx)
+}
+
+func BuildCodeFromID(id uint64) string {
+	return utils.EncodeBase62(id)
 }

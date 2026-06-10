@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"mysurl1/internal/dao"
 	"mysurl1/internal/utils"
 
 	"github.com/bwmarrin/snowflake"
@@ -12,10 +11,9 @@ import (
 
 type SnowflakeGenerator struct {
 	node *snowflake.Node
-	dao  *dao.ShortLinkDAO
 }
 
-func NewSnowflakeGenerator(workerID int64, shortLinkDAO *dao.ShortLinkDAO) (*SnowflakeGenerator, error) {
+func NewSnowflakeGenerator(workerID int64) (*SnowflakeGenerator, error) {
 	node, err := snowflake.NewNode(workerID)
 	if err != nil {
 		return nil, err
@@ -23,7 +21,6 @@ func NewSnowflakeGenerator(workerID int64, shortLinkDAO *dao.ShortLinkDAO) (*Sno
 
 	return &SnowflakeGenerator{
 		node: node,
-		dao:  shortLinkDAO,
 	}, nil
 }
 
@@ -31,12 +28,9 @@ func (g *SnowflakeGenerator) Provider() string {
 	return ProviderSnowflake
 }
 
-func (g *SnowflakeGenerator) NextCode(ctx context.Context, userID *uint64, normalizedURL, urlHash string) (string, error) {
+func (g *SnowflakeGenerator) NextCode(ctx context.Context) (string, error) {
 	if g == nil || g.node == nil {
 		return "", errors.New("snowflake generator node is not configured")
-	}
-	if g.dao == nil {
-		return "", errors.New("snowflake generator dao is not configured")
 	}
 
 	id := g.node.Generate().Int64()
@@ -45,5 +39,5 @@ func (g *SnowflakeGenerator) NextCode(ctx context.Context, userID *uint64, norma
 	}
 
 	shortCode := utils.EncodeBase62(uint64(id))
-	return g.dao.CreateWithShortCode(ctx, userID, shortCode, normalizedURL, urlHash)
+	return shortCode, nil
 }
