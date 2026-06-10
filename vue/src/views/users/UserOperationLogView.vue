@@ -17,13 +17,6 @@ const nextCursor = ref(0)
 const hasMore = ref(false)
 const cursorHistory = ref([])
 const pageSizeOptions = [10, 20, 50]
-const selectedAction = ref('')
-
-const actionOptions = [
-  { value: '', label: '全部动作' },
-  { value: 'login', label: '登录' },
-  { value: 'create_link', label: '创建短链' },
-]
 
 const pageLabel = computed(() => {
   if (total.value === 0) return '0 / 0'
@@ -31,14 +24,6 @@ const pageLabel = computed(() => {
   const end = Math.min(start + logs.value.length - 1, total.value)
   return `${start}-${end} / ${total.value}`
 })
-
-const loginCount = computed(() =>
-  logs.value.filter((item) => item.action === 'login').length,
-)
-
-const createLinkCount = computed(() =>
-  logs.value.filter((item) => item.action === 'create_link').length,
-)
 
 const latestActionTime = computed(() => {
   if (logs.value.length === 0) return '--'
@@ -65,9 +50,6 @@ async function loadLogs() {
     })
     if (currentCursor.value > 0) {
       params.set('last_id', String(currentCursor.value))
-    }
-    if (selectedAction.value) {
-      params.set('action', selectedAction.value)
     }
 
     const data = await getJson(`/api/v1/user-operation-logs?${params.toString()}`, { auth: true })
@@ -110,7 +92,6 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  selectedAction.value = ''
   limit.value = 10
   resetPagination()
   loadLogs()
@@ -131,14 +112,9 @@ function goNextPage() {
   loadLogs()
 }
 
-function formatAction(action) {
-  if (action === 'login') return '登录'
-  if (action === 'create_link') return '创建短链'
-  return action || '--'
-}
-
 function formatResult(result) {
   if (result === 'success') return '成功'
+  if (result === 'failed') return '失败'
   return result || '--'
 }
 
@@ -174,12 +150,12 @@ function formatDate(timestamp) {
 
     <section class="user-grid operation-log-summary-grid">
       <article class="user-card operation-log-summary-card">
-        <span class="signal-title">当前页登录</span>
-        <strong>{{ loginCount }}</strong>
+        <span class="signal-title">当前页记录</span>
+        <strong>{{ logs.length }}</strong>
       </article>
       <article class="user-card operation-log-summary-card">
-        <span class="signal-title">当前页创建短链</span>
-        <strong>{{ createLinkCount }}</strong>
+        <span class="signal-title">当前页结果</span>
+        <strong>{{ logs.length > 0 ? '成功' : '--' }}</strong>
       </article>
       <article class="user-card operation-log-summary-card">
         <span class="signal-title">最新时间</span>
@@ -189,15 +165,6 @@ function formatDate(timestamp) {
 
     <section class="filter-panel operation-log-toolbar">
       <div class="operation-log-toolbar-row">
-        <label class="filter-field operation-log-size-field">
-          <span class="field-label">动作</span>
-          <select v-model="selectedAction" class="text-input filter-select" :disabled="loading">
-            <option v-for="option in actionOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-
         <label class="filter-field operation-log-size-field">
           <span class="field-label">每页条数</span>
           <select v-model.number="limit" class="text-input filter-select" :disabled="loading">
@@ -239,24 +206,19 @@ function formatDate(timestamp) {
             <tr>
               <th>ID</th>
               <th>时间</th>
-              <th>动作</th>
               <th>结果</th>
-              <th>对象 ID</th>
-              <th>短码</th>
+              <th>备注</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in logs" :key="item.id">
               <td>{{ item.id }}</td>
               <td>{{ formatDate(item.created_at) }}</td>
-              <td>{{ formatAction(item.action) }}</td>
               <td>
                 <span class="log-result-badge">{{ formatResult(item.result) }}</span>
               </td>
-              <td>{{ item.target_id || '--' }}</td>
               <td>
-                <strong v-if="item.target_code" class="table-code">{{ item.target_code }}</strong>
-                <span v-else>--</span>
+                <span class="batch-error-text">{{ item.reason || '--' }}</span>
               </td>
             </tr>
           </tbody>

@@ -54,7 +54,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 }
 
 func mustNewCodeManager(short config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) *codestrategy.CodeManager {
-	manager := codestrategy.NewCodeManager(short.Provider)
+	manager := codestrategy.NewCodeManager()
 	manager.Register(codestrategy.NewRedisIncrGenerator(serviceContext.Redis))
 	snowflakeGenerator, err := mustNewSnowflakeGenerator(short)
 	if err != nil {
@@ -62,11 +62,19 @@ func mustNewCodeManager(short config.ShortConf, shortLinkDAO *dao.ShortLinkDAO) 
 	}
 	manager.Register(snowflakeGenerator)
 
-	if _, err := manager.Get(short.Provider); err != nil && short.Provider != "" {
-		panic(err)
+	provider := short.Provider
+	if provider == "" {
+		provider = codestrategy.ProviderMySQLAutoIncrement
 	}
-	if _, err := manager.Get(""); err != nil {
-		panic(err)
+	switch provider {
+	case codestrategy.ProviderMySQLAutoIncrement:
+		return manager
+	case codestrategy.ProviderRedisIncr, codestrategy.ProviderSnowflake:
+		if _, err := manager.Get(provider); err != nil {
+			panic(err)
+		}
+	default:
+		panic(fmt.Errorf("unsupported short code provider: %s", provider))
 	}
 
 	return manager

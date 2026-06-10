@@ -5,7 +5,6 @@ package logic
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type RedirectLogic struct {
@@ -49,34 +47,22 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 	}
 
 	cacheValue, cacheErr := l.svcCtx.ShortLinkCache.GetShortToLong(l.ctx, code)
-	if cacheErr != nil {
-		l.Errorf("get short code cache failed: %v", cacheErr)
-	} else if cacheValue != nil {
+	if cacheErr == nil && cacheValue != nil {
 		return l.returnRedirectTarget(code, cacheValue.ID, cacheValue.OriginalURL, "short->long cache")
 	}
 
+	l.Errorf("get short code cache miss or failed: %v", cacheErr)
+
 	bloomExists, bloomErr := l.svcCtx.ShortLinkCache.ShortCodeBloomExists(l.ctx, code)
-	if bloomErr != nil {
-		l.Errorf("check short code bloom failed: %v", bloomErr)
-	} else if !bloomExists {
+	if bloomErr == nil && !bloomExists {
 		return "", utils.NotFound("short link not found")
 	}
+	l.Errorf("check short code bloom hit or failed: %v", bloomErr)
 
 	result, fresh, err := l.svcCtx.FlightGroup.DoEx(redirectSingleflightKey(code), func() (any, error) {
-		cachedValue, err := l.svcCtx.ShortLinkCache.GetShortToLong(l.ctx, code)
-		if err != nil {
-			l.Errorf("get short code cache in singleflight failed: %v", err)
-		} else if cachedValue != nil {
-			return redirectLookupResult{
-				id:          cachedValue.ID,
-				originalURL: cachedValue.OriginalURL,
-				source:      "short->long cache",
-			}, nil
-		}
-
 		record, err := l.svcCtx.ShortLinkDAO.FindAvailableByCode(l.ctx, code)
-		if err != nil {
-			return nil, err
+		if err != nil || record == nil {
+			return nil, fmt.Errorf("look database miss or failed: %v", err)
 		}
 
 		if err := l.svcCtx.ShortLinkCache.ShortCodeBloomAdd(l.ctx, code); err != nil {
@@ -96,11 +82,7 @@ func (l *RedirectLogic) Redirect(req *types.RedirectRequest) (string, error) {
 		}, nil
 	})
 	if err != nil {
-		if errors.Is(err, sqlx.ErrNotFound) {
-			return "", utils.NotFound("short link not found")
-		}
-
-		l.Errorf("query short link by code failed: %v", err)
+		l.Errorf("query short link by code not found or failed: %v", err)
 		return "", utils.InternalError("query short link failed: " + err.Error())
 	}
 

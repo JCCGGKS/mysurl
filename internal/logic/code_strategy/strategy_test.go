@@ -25,11 +25,11 @@ func (g *stubGenerator) NextCode(context.Context) (string, error) {
 }
 
 func TestCodeManagerRegisterOverwrite(t *testing.T) {
-	manager := NewCodeManager(ProviderRedisIncr)
+	manager := NewCodeManager()
 	manager.Register(&stubGenerator{provider: ProviderRedisIncr, code: "old"})
 	manager.Register(&stubGenerator{provider: ProviderRedisIncr, code: "new"})
 
-	code, err := manager.NextCode(context.Background())
+	code, err := manager.NextCode(context.Background(), ProviderRedisIncr)
 	if err != nil {
 		t.Fatalf("NextCode() unexpected error: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestCodeManagerRegisterOverwrite(t *testing.T) {
 }
 
 func TestCodeManagerGetMissingProvider(t *testing.T) {
-	manager := NewCodeManager(ProviderMySQLAutoIncrement)
+	manager := NewCodeManager()
 
 	if _, err := manager.Get(ProviderRedisIncr); err == nil {
 		t.Fatal("Get() expected error for missing provider")
@@ -47,20 +47,20 @@ func TestCodeManagerGetMissingProvider(t *testing.T) {
 }
 
 func TestCodeManagerNextCodePropagatesError(t *testing.T) {
-	manager := NewCodeManager(ProviderRedisIncr)
+	manager := NewCodeManager()
 	wantErr := errors.New("boom")
 	manager.Register(&stubGenerator{provider: ProviderRedisIncr, err: wantErr})
 
-	_, err := manager.NextCode(context.Background())
+	_, err := manager.NextCode(context.Background(), ProviderRedisIncr)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("NextCode() error = %v, want %v", err, wantErr)
 	}
 }
 
 func TestCodeManagerRejectsMySQLAutoIncrementNextCode(t *testing.T) {
-	manager := NewCodeManager(ProviderMySQLAutoIncrement)
+	manager := NewCodeManager()
 
-	if _, err := manager.NextCode(context.Background()); err == nil {
+	if _, err := manager.NextCode(context.Background(), ProviderMySQLAutoIncrement); err == nil {
 		t.Fatal("NextCode() expected error for mysql auto increment provider")
 	}
 }

@@ -18,18 +18,23 @@ func NewUserOperationLogDAO(conn sqlx.SqlConn) *UserOperationLogDAO {
 	return &UserOperationLogDAO{conn: conn}
 }
 
-func (d *UserOperationLogDAO) Insert(ctx context.Context, userID uint64, action, result string, targetID *uint64, targetCode *string) error {
+func (d *UserOperationLogDAO) Insert(ctx context.Context, userID uint64, action, result, reason string, targetCode *string) error {
 	query := `
 INSERT INTO user_operation_logs (
 	user_id,
 	action,
 	result,
-	target_id,
+	reason,
 	target_code
 ) VALUES (?, ?, ?, ?, ?)
 `
 
-	_, err := d.conn.ExecCtx(ctx, query, userID, action, result, targetID, targetCode)
+	var reasonValue any
+	if strings.TrimSpace(reason) != "" {
+		reasonValue = reason
+	}
+
+	_, err := d.conn.ExecCtx(ctx, query, userID, action, result, reasonValue, targetCode)
 	return err
 }
 
@@ -68,7 +73,7 @@ func (d *UserOperationLogDAO) ListByUserIDWithCursor(ctx context.Context, userID
 	user_id,
 	action,
 	result,
-	target_id,
+	reason,
 	target_code,
 	created_at
 FROM user_operation_logs

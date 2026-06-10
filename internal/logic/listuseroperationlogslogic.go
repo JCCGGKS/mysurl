@@ -45,7 +45,10 @@ func (l *ListUserOperationLogsLogic) ListUserOperationLogs(req *types.ListUserOp
 	}
 
 	action := strings.TrimSpace(req.Action)
-	if action != "" && action != model.UserOperationActionLogin && action != model.UserOperationActionCreateLink {
+	if action != "" &&
+		action != model.UserOperationActionLogin &&
+		action != model.UserOperationActionCreateLink &&
+		action != model.UserOperationActionCreateLinkBatch {
 		return nil, utils.BadRequest("action is invalid")
 	}
 
@@ -71,15 +74,11 @@ func (l *ListUserOperationLogsLogic) ListUserOperationLogs(req *types.ListUserOp
 	for _, record := range records {
 		item := types.UserOperationLogItem{
 			ID:        record.ID,
-			Action:    record.Action,
 			Result:    record.Result,
 			CreatedAt: record.CreatedAt.Unix(),
 		}
-		if record.TargetID != nil {
-			item.TargetID = *record.TargetID
-		}
-		if record.TargetCode != nil {
-			item.TargetCode = *record.TargetCode
+		if record.Reason != nil {
+			item.Reason = *record.Reason
 		}
 
 		items = append(items, item)

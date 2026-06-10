@@ -10,7 +10,7 @@ import (
 )
 
 type operationLogWriter interface {
-	Insert(ctx context.Context, userID uint64, action, result string, targetID *uint64, targetCode *string) error
+	Insert(ctx context.Context, userID uint64, action, result, reason string, targetCode *string) error
 }
 
 type OperationLogMiddleware struct {
@@ -28,10 +28,6 @@ func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc 
 
 		next(writer, r.WithContext(ctx))
 
-		if writer.statusCode >= http.StatusBadRequest {
-			return
-		}
-
 		payload, ok := utils.GetOperationLogPayload(ctx)
 		if !ok {
 			return
@@ -40,7 +36,7 @@ func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
-		if err := m.dao.Insert(ctx, payload.UserID, payload.Action, payload.Result, payload.TargetID, payload.TargetCode); err != nil {
+		if err := m.dao.Insert(ctx, payload.UserID, payload.Action, payload.Result, payload.Reason, payload.TargetCode); err != nil {
 			logx.Errorf("write user operation log failed: %v", err)
 		}
 	}

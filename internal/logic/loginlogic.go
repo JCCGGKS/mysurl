@@ -44,32 +44,46 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.AuthResponse, e
 
 	username := utils.NormalizeUsername(req.Username)
 	if err := utils.ValidateUsername(username); err != nil {
+		l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
 		return nil, err
 	}
 	if req.Password == "" {
-		return nil, utils.BadRequest("password is required")
+		err := utils.BadRequest("password is required")
+		l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
+		return nil, err
 	}
 
 	user, err := l.svcCtx.UserDAO.FindByUsername(l.ctx, username)
 	if err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
-			return nil, utils.Unauthorized("username or password is invalid")
+			err := utils.Unauthorized("username or password is invalid")
+			l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
+			return nil, err
 		}
-		return nil, utils.InternalError("query user failed: " + err.Error())
+		err := utils.InternalError("query user failed: " + err.Error())
+		l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
+		return nil, err
 	}
 
 	if err := utils.ComparePassword(user.PasswordHash, req.Password, authConf.PasswordPepper); err != nil {
-		return nil, utils.Unauthorized("username or password is invalid")
+		authErr := utils.Unauthorized("username or password is invalid")
+		l.setLoginOperationLog(user.ID, model.UserOperationResultFailed, authErr.Error())
+		return nil, authErr
 	}
 
-	utils.SetOperationLogPayload(l.ctx, utils.OperationLogPayload{
-		UserID: user.ID,
-		Action: model.UserOperationActionLogin,
-		Result: model.UserOperationResultSuccess,
-	})
+	l.setLoginOperationLog(user.ID, model.UserOperationResultSuccess, "")
 
 	return utils.BuildAuthResponse(authConf, utils.AuthClaims{
 		UserID:   user.ID,
 		Username: user.Username,
+	})
+}
+
+func (l *LoginLogic) setLoginOperationLog(userID uint64, result, reason string) {
+	utils.SetOperationLogPayload(l.ctx, utils.OperationLogPayload{
+		UserID: userID,
+		Action: model.UserOperationActionLogin,
+		Result: result,
+		Reason: reason,
 	})
 }

@@ -20,18 +20,12 @@ type Generator interface {
 }
 
 type CodeManager struct {
-	provider   string
 	mu         sync.RWMutex
 	generators map[string]Generator
 }
 
-func NewCodeManager(provider string) *CodeManager {
-	if provider == "" {
-		provider = ProviderMySQLAutoIncrement
-	}
-
+func NewCodeManager() *CodeManager {
 	return &CodeManager{
-		provider:   provider,
 		generators: make(map[string]Generator),
 	}
 }
@@ -48,10 +42,6 @@ func (m *CodeManager) Register(generator Generator) {
 }
 
 func (m *CodeManager) Get(provider string) (Generator, error) {
-	if provider == "" {
-		provider = ProviderMySQLAutoIncrement
-	}
-
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -63,27 +53,18 @@ func (m *CodeManager) Get(provider string) (Generator, error) {
 	return generator, nil
 }
 
-func (m *CodeManager) Provider() string {
-	if m == nil || m.provider == "" {
-		return ProviderMySQLAutoIncrement
-	}
-
-	return m.provider
-}
-
-func (m *CodeManager) IsMySQLAutoIncrement() bool {
-	return m.Provider() == ProviderMySQLAutoIncrement
-}
-
-func (m *CodeManager) NextCode(ctx context.Context) (string, error) {
+func (m *CodeManager) NextCode(ctx context.Context, provider string) (string, error) {
 	if m == nil {
 		return "", fmt.Errorf("code manager is nil")
 	}
-	if m.IsMySQLAutoIncrement() {
+	if provider == "" {
+		provider = ProviderMySQLAutoIncrement
+	}
+	if provider == ProviderMySQLAutoIncrement {
 		return "", fmt.Errorf("provider %s does not support pre-generated short codes", ProviderMySQLAutoIncrement)
 	}
 
-	generator, err := m.Get(m.provider)
+	generator, err := m.Get(provider)
 	if err != nil {
 		return "", err
 	}

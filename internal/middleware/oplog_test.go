@@ -15,17 +15,17 @@ type stubOperationLogWriter struct {
 	userID     uint64
 	action     string
 	result     string
-	targetID   *uint64
+	reason     string
 	targetCode *string
 	err        error
 }
 
-func (s *stubOperationLogWriter) Insert(_ context.Context, userID uint64, action, result string, targetID *uint64, targetCode *string) error {
+func (s *stubOperationLogWriter) Insert(_ context.Context, userID uint64, action, result, reason string, targetCode *string) error {
 	s.called = true
 	s.userID = userID
 	s.action = action
 	s.result = result
-	s.targetID = targetID
+	s.reason = reason
 	s.targetCode = targetCode
 	return s.err
 }
@@ -35,13 +35,11 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		targetID := uint64(9)
 		targetCode := "code9"
 		utils.SetOperationLogPayload(r.Context(), utils.OperationLogPayload{
 			UserID:     101,
 			Action:     "create_link",
 			Result:     "success",
-			TargetID:   &targetID,
 			TargetCode: &targetCode,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -57,15 +55,12 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	if writer.userID != 101 || writer.action != "create_link" || writer.result != "success" {
 		t.Fatalf("unexpected payload persisted: %+v", writer)
 	}
-	if writer.targetID == nil || *writer.targetID != 9 {
-		t.Fatalf("unexpected target id: %+v", writer.targetID)
-	}
 	if writer.targetCode == nil || *writer.targetCode != "code9" {
 		t.Fatalf("unexpected target code: %+v", writer.targetCode)
 	}
 }
 
-func TestOperationLogMiddlewareSkipOnFailureStatus(t *testing.T) {
+func TestOperationLogMiddlewareWriteOnFailureStatus(t *testing.T) {
 	writer := &stubOperationLogWriter{}
 	m := NewOperationLogMiddleware(writer)
 
@@ -73,7 +68,8 @@ func TestOperationLogMiddlewareSkipOnFailureStatus(t *testing.T) {
 		utils.SetOperationLogPayload(r.Context(), utils.OperationLogPayload{
 			UserID: 101,
 			Action: "login",
-			Result: "success",
+			Result: "failed",
+			Reason: "username or password is invalid",
 		})
 		w.WriteHeader(http.StatusUnauthorized)
 	})
@@ -82,8 +78,11 @@ func TestOperationLogMiddlewareSkipOnFailureStatus(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
-	if writer.called {
-		t.Fatalf("expected insert to be skipped on failure status")
+	if !writer.called {
+		t.Fatalf("expected insert on failure status when payload exists")
+	}
+	if writer.result != "failed" || writer.reason != "username or password is invalid" {
+		t.Fatalf("unexpected failure payload persisted: %+v", writer)
 	}
 }
 

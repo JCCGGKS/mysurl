@@ -3,9 +3,11 @@ package model
 import "time"
 
 const (
-	UserOperationActionLogin      = "login"
-	UserOperationActionCreateLink = "create_link"
-	UserOperationResultSuccess    = "success"
+	UserOperationActionLogin           = "login"
+	UserOperationActionCreateLink      = "create_link"
+	UserOperationActionCreateLinkBatch = "create_link_batch"
+	UserOperationResultSuccess         = "success"
+	UserOperationResultFailed          = "failed"
 )
 
 type UserOperationLog struct {
@@ -13,7 +15,7 @@ type UserOperationLog struct {
 	UserID     uint64    `db:"user_id"`
 	Action     string    `db:"action"`
 	Result     string    `db:"result"`
-	TargetID   *uint64   `db:"target_id"`
+	Reason     *string   `db:"reason"`
 	TargetCode *string   `db:"target_code"`
 	CreatedAt  time.Time `db:"created_at"`
 }

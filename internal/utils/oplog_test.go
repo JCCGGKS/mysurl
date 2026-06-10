@@ -7,14 +7,12 @@ import (
 
 func TestOperationLogPayloadLifecycle(t *testing.T) {
 	ctx := WithOperationLogHolder(context.Background())
-	targetID := uint64(12)
 	targetCode := "abc123"
 
 	SetOperationLogPayload(ctx, OperationLogPayload{
 		UserID:     1001,
 		Action:     "create_link",
 		Result:     "success",
-		TargetID:   &targetID,
 		TargetCode: &targetCode,
 	})
 
@@ -31,9 +29,6 @@ func TestOperationLogPayloadLifecycle(t *testing.T) {
 	if payload.Result != "success" {
 		t.Fatalf("unexpected result: %s", payload.Result)
 	}
-	if payload.TargetID == nil || *payload.TargetID != targetID {
-		t.Fatalf("unexpected target id: %+v", payload.TargetID)
-	}
 	if payload.TargetCode == nil || *payload.TargetCode != targetCode {
 		t.Fatalf("unexpected target code: %+v", payload.TargetCode)
 	}
@@ -43,13 +38,12 @@ func TestSetOperationLogPayloadIgnoreInvalidPayload(t *testing.T) {
 	ctx := WithOperationLogHolder(context.Background())
 
 	SetOperationLogPayload(ctx, OperationLogPayload{
-		UserID: 0,
 		Action: "login",
 		Result: "success",
 	})
 
-	if _, ok := GetOperationLogPayload(ctx); ok {
-		t.Fatalf("expected invalid payload to be ignored")
+	if _, ok := GetOperationLogPayload(ctx); !ok {
+		t.Fatalf("expected payload without user id to be stored")
 	}
 }
 

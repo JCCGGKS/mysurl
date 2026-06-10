@@ -7,6 +7,10 @@ type CreateLinkRequest struct {
 	LongURL string `json:"long_url"`
 }
 
+type BatchCreateLinksRequest struct {
+	LongURLs []string `json:"long_urls"`
+}
+
 type RegisterRequest struct {
 	Username        string `json:"username"`
 	Password        string `json:"password"`
@@ -33,6 +37,23 @@ type CreateLinkResponse struct {
 	ShortCode   string `json:"short_code"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+}
+
+type BatchCreateLinkItem struct {
+	Index       int    `json:"index"`
+	LongURL     string `json:"long_url"`
+	Success     bool   `json:"success"`
+	ShortCode   string `json:"short_code,omitempty"`
+	ShortURL    string `json:"short_url,omitempty"`
+	OriginalURL string `json:"original_url,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
+type BatchCreateLinksResponse struct {
+	Items        []BatchCreateLinkItem `json:"items"`
+	Total        int                   `json:"total"`
+	SuccessCount int                   `json:"success_count"`
+	FailedCount  int                   `json:"failed_count"`
 }
 
 type UserLinkItem struct {
@@ -66,12 +87,10 @@ type ListUserOperationLogsRequest struct {
 }
 
 type UserOperationLogItem struct {
-	ID         uint64 `json:"id"`
-	Action     string `json:"action"`
-	Result     string `json:"result"`
-	TargetID   uint64 `json:"target_id,omitempty"`
-	TargetCode string `json:"target_code,omitempty"`
-	CreatedAt  int64  `json:"created_at"`
+	ID        uint64 `json:"id"`
+	Result    string `json:"result"`
+	Reason    string `json:"reason,omitempty"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 type UserOperationLogListResponse struct {

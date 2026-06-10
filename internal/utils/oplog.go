@@ -8,7 +8,7 @@ type OperationLogPayload struct {
 	UserID     uint64
 	Action     string
 	Result     string
-	TargetID   *uint64
+	Reason     string
 	TargetCode *string
 }
 
@@ -25,7 +25,7 @@ func WithOperationLogHolder(ctx context.Context) context.Context {
 }
 
 func SetOperationLogPayload(ctx context.Context, payload OperationLogPayload) {
-	if ctx == nil || payload.UserID == 0 || payload.Action == "" || payload.Result == "" {
+	if ctx == nil || payload.Action == "" || payload.Result == "" {
 		return
 	}
 

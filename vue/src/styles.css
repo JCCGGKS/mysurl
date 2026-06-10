@@ -830,6 +830,39 @@ a {
   gap: 14px;
 }
 
+.mode-switch {
+  display: inline-flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 6px;
+  border: 1px solid rgba(84, 58, 34, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 248, 240, 0.72);
+}
+
+.mode-switch-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.mode-switch-button.is-active {
+  background: #241913;
+  color: #f9f2e8;
+}
+
+.mode-switch-button:hover {
+  transform: translateY(-1px);
+}
+
 .field-label {
   font-weight: 700;
   color: var(--ink);
@@ -858,6 +891,16 @@ a {
     0 0 0 4px rgba(173, 63, 40, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transform: translateY(-1px);
+}
+
+.batch-url-input {
+  min-height: 216px;
+}
+
+.batch-help-text {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 .example-row {
@@ -995,6 +1038,13 @@ a {
   margin: 0;
 }
 
+.batch-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
 .result-item {
   padding: 16px 18px;
   border: 1px solid rgba(84, 58, 34, 0.1);
@@ -1028,6 +1078,51 @@ a {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 20px;
+}
+
+.batch-result-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.batch-result-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.batch-result-table-shell {
+  margin-top: 12px;
+}
+
+.batch-result-table {
+  min-width: 1080px;
+}
+
+.batch-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.batch-status.is-success {
+  background: rgba(74, 150, 95, 0.12);
+  color: #255a38;
+}
+
+.batch-status.is-failed {
+  background: rgba(173, 63, 40, 0.1);
+  color: var(--accent-deep);
+}
+
+.batch-error-text {
+  color: var(--muted);
 }
 
 .secondary-button {
@@ -1112,6 +1207,15 @@ a {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .batch-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-result-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1135,6 +1239,14 @@ a {
   .intro-card,
   .user-card {
     padding: 22px;
+  }
+
+  .mode-switch {
+    width: 100%;
+  }
+
+  .mode-switch-button {
+    flex: 1 1 0;
   }
 
   .auth-panel-form {
