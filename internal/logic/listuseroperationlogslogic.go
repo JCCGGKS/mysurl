@@ -74,6 +74,7 @@ func (l *ListUserOperationLogsLogic) ListUserOperationLogs(req *types.ListUserOp
 	for _, record := range records {
 		item := types.UserOperationLogItem{
 			ID:        record.ID,
+			Action:    record.Action,
 			Result:    record.Result,
 			CreatedAt: record.CreatedAt.Unix(),
 		}

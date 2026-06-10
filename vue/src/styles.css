@@ -569,6 +569,10 @@ a {
   align-items: end;
 }
 
+.link-list-filter-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+}
+
 .filter-field {
   display: grid;
   gap: 8px;
@@ -747,6 +751,33 @@ a {
 .pagination-button {
   min-height: 44px;
   padding: 0 18px;
+}
+
+.pagination-arrow {
+  min-width: 44px;
+  padding: 0;
+}
+
+.pagination-page-list {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pagination-page-number {
+  min-width: 44px;
+  justify-content: center;
+  padding: 0 14px;
+}
+
+.pagination-page-number-active {
+  border-color: rgba(126, 39, 21, 0.28);
+  background: rgba(231, 176, 145, 0.2);
+  color: var(--accent-deep);
+}
+
+.pagination-size-select {
+  min-width: 120px;
 }
 
 .intro-hero,
@@ -1269,6 +1300,15 @@ a {
   .submit-button,
   .secondary-button,
   .ghost-link {
+    width: 100%;
+  }
+
+  .pagination-page-list {
+    width: 100%;
+  }
+
+  .pagination-page-number,
+  .pagination-arrow {
     width: 100%;
   }
 }

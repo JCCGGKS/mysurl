@@ -88,6 +88,7 @@ type ListUserOperationLogsRequest struct {
 
 type UserOperationLogItem struct {
 	ID        uint64 `json:"id"`
+	Action    string `json:"action"`
 	Result    string `json:"result"`
 	Reason    string `json:"reason,omitempty"`
 	CreatedAt int64  `json:"created_at"`

@@ -17,6 +17,14 @@ const nextCursor = ref(0)
 const hasMore = ref(false)
 const cursorHistory = ref([])
 const pageSizeOptions = [10, 20, 50]
+const selectedAction = ref('')
+
+const actionOptions = [
+  { value: '', label: '全部类型' },
+  { value: 'login', label: '登录' },
+  { value: 'create_link', label: '创建短链' },
+  { value: 'create_link_batch', label: '批量创建短链' },
+]
 
 const pageLabel = computed(() => {
   if (total.value === 0) return '0 / 0'
@@ -25,9 +33,14 @@ const pageLabel = computed(() => {
   return `${start}-${end} / ${total.value}`
 })
 
-const latestActionTime = computed(() => {
-  if (logs.value.length === 0) return '--'
-  return formatDate(logs.value[logs.value.length - 1]?.created_at || 0)
+const totalPages = computed(() => {
+  if (total.value === 0) return 0
+  return Math.ceil(total.value / limit.value)
+})
+
+const pageButtons = computed(() => {
+  const reachablePages = Math.min(totalPages.value, currentPage.value + (hasMore.value ? 1 : 0))
+  return Array.from({ length: reachablePages }, (_, index) => index + 1)
 })
 
 onMounted(() => {
@@ -50,6 +63,9 @@ async function loadLogs() {
     })
     if (currentCursor.value > 0) {
       params.set('last_id', String(currentCursor.value))
+    }
+    if (selectedAction.value) {
+      params.set('action', selectedAction.value)
     }
 
     const data = await getJson(`/api/v1/user-operation-logs?${params.toString()}`, { auth: true })
@@ -92,6 +108,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
+  selectedAction.value = ''
   limit.value = 10
   resetPagination()
   loadLogs()
@@ -110,6 +127,35 @@ function goNextPage() {
   currentCursor.value = nextCursor.value
   currentPage.value += 1
   loadLogs()
+}
+
+function goToPage(page) {
+  if (loading.value || page === currentPage.value) return
+  if (page < 1 || page > totalPages.value) return
+
+  if (page === currentPage.value - 1) {
+    goPrevPage()
+    return
+  }
+
+  if (page === currentPage.value + 1) {
+    goNextPage()
+    return
+  }
+
+  if (page < currentPage.value) {
+    currentCursor.value = page === 1 ? 0 : (cursorHistory.value[page - 1] ?? 0)
+    currentPage.value = page
+    cursorHistory.value = cursorHistory.value.slice(0, Math.max(0, page - 1))
+    loadLogs()
+  }
+}
+
+function formatAction(action) {
+  if (action === 'login') return '登录'
+  if (action === 'create_link') return '创建短链'
+  if (action === 'create_link_batch') return '批量创建短链'
+  return action || '--'
 }
 
 function formatResult(result) {
@@ -148,27 +194,14 @@ function formatDate(timestamp) {
       </div>
     </header>
 
-    <section class="user-grid operation-log-summary-grid">
-      <article class="user-card operation-log-summary-card">
-        <span class="signal-title">当前页记录</span>
-        <strong>{{ logs.length }}</strong>
-      </article>
-      <article class="user-card operation-log-summary-card">
-        <span class="signal-title">当前页结果</span>
-        <strong>{{ logs.length > 0 ? '成功' : '--' }}</strong>
-      </article>
-      <article class="user-card operation-log-summary-card">
-        <span class="signal-title">最新时间</span>
-        <strong>{{ latestActionTime }}</strong>
-      </article>
-    </section>
-
     <section class="filter-panel operation-log-toolbar">
       <div class="operation-log-toolbar-row">
         <label class="filter-field operation-log-size-field">
-          <span class="field-label">每页条数</span>
-          <select v-model.number="limit" class="text-input filter-select" :disabled="loading">
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 条</option>
+          <span class="field-label">类型</span>
+          <select v-model="selectedAction" class="text-input filter-select" :disabled="loading">
+            <option v-for="option in actionOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
           </select>
         </label>
 
@@ -206,6 +239,7 @@ function formatDate(timestamp) {
             <tr>
               <th>ID</th>
               <th>时间</th>
+              <th>类型</th>
               <th>结果</th>
               <th>备注</th>
             </tr>
@@ -214,6 +248,7 @@ function formatDate(timestamp) {
             <tr v-for="item in logs" :key="item.id">
               <td>{{ item.id }}</td>
               <td>{{ formatDate(item.created_at) }}</td>
+              <td>{{ formatAction(item.action) }}</td>
               <td>
                 <span class="log-result-badge">{{ formatResult(item.result) }}</span>
               </td>
@@ -226,26 +261,46 @@ function formatDate(timestamp) {
       </div>
 
       <div class="pagination-bar">
+        <p class="pagination-meta">显示 {{ pageLabel }}</p>
         <div class="pagination-actions">
+          <span class="pagination-current">总: {{ totalPages }} 页</span>
           <button
-            class="ghost-link pagination-button"
+            class="ghost-link pagination-button pagination-arrow"
             type="button"
             @click="goPrevPage"
             :disabled="currentPage <= 1 || loading"
+            aria-label="上一页"
           >
-            上一页
+            &lt;
           </button>
-          <span class="pagination-current">第 {{ currentPage }} 页</span>
+          <div class="pagination-page-list">
+            <button
+              v-for="page in pageButtons"
+              :key="page"
+              class="ghost-link pagination-button pagination-page-number"
+              :class="{ 'pagination-page-number-active': page === currentPage }"
+              type="button"
+              @click="goToPage(page)"
+              :disabled="loading || page > currentPage + 1"
+            >
+              {{ page }}
+            </button>
+          </div>
           <button
-            class="ghost-link pagination-button"
+            class="ghost-link pagination-button pagination-arrow"
             type="button"
             @click="goNextPage"
             :disabled="!hasMore || loading"
+            aria-label="下一页"
           >
-            下一页
+            &gt;
           </button>
+          <label class="filter-field operation-log-page-size-field">
+            <select v-model.number="limit" class="text-input filter-select pagination-size-select" :disabled="loading">
+              <option v-for="size in pageSizeOptions" :key="size" :value="size">每页条数：{{ size }}</option>
+            </select>
+          </label>
         </div>
-        <p class="pagination-meta">显示 {{ pageLabel }}</p>
       </div>
     </section>
   </section>
