@@ -120,7 +120,7 @@ ORDER BY id DESC
 func (d *ShortLinkDAO) ListByUserIDWithCursor(ctx context.Context, userID uint64, shortCode, originalURL string, lastID uint64, limit int) ([]model.ShortLink, error) {
 	var records []model.ShortLink
 	query, args := buildUserLinkListQuery(false, userID, shortCode, originalURL, lastID)
-	query += "\nORDER BY id ASC\nLIMIT ?\n"
+	query += "\nORDER BY id DESC\nLIMIT ?\n"
 	args = append(args, limit)
 
 	if err := d.conn.QueryRowsPartialCtx(ctx, &records, query, args...); err != nil {
@@ -246,7 +246,7 @@ WHERE user_id = ?
 
 	args := []any{userID}
 	if lastID > 0 {
-		builder.WriteString("\n  AND id > ?")
+		builder.WriteString("\n  AND id < ?")
 		args = append(args, lastID)
 	}
 

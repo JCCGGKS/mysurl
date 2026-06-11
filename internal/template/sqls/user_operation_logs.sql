@@ -5,7 +5,6 @@ CREATE TABLE `user_operation_logs` (
   `action` varchar(32) NOT NULL COMMENT '动作类型: login/create_link',
   `result` varchar(16) NOT NULL COMMENT '结果: success/failed',
   `reason` varchar(255) DEFAULT NULL COMMENT '失败原因',
-  `target_code` varchar(32) DEFAULT NULL COMMENT '目标对象编码, 如短码',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),

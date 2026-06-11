@@ -78,7 +78,6 @@ func (d *UserOperationLogDAO) ListByUserIDWithCursor(ctx context.Context, userID
 	action,
 	result,
 	reason,
-	target_code,
 	created_at
 FROM user_operation_logs
 WHERE user_id = ?`)
@@ -93,11 +92,11 @@ WHERE user_id = ?`)
 		args = append(args, result)
 	}
 	if lastID > 0 {
-		builder.WriteString("\n  AND id > ?")
+		builder.WriteString("\n  AND id < ?")
 		args = append(args, lastID)
 	}
 
-	builder.WriteString("\nORDER BY id ASC\nLIMIT ?\n")
+	builder.WriteString("\nORDER BY id DESC\nLIMIT ?\n")
 	args = append(args, limit)
 
 	if err := d.conn.QueryRowsPartialCtx(ctx, &records, builder.String(), args...); err != nil {

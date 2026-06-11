@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -46,11 +45,6 @@ func (l *ListUserOperationLogsLogic) ListUserOperationLogs(req *types.ListUserOp
 
 	action := strings.TrimSpace(req.Action)
 	result := strings.TrimSpace(req.Result)
-	if result != "" &&
-		result != model.UserOperationResultSuccess &&
-		result != model.UserOperationResultFailed {
-		return nil, utils.BadRequest("result is invalid")
-	}
 
 	total, err := l.svcCtx.UserOperationLogDAO.CountByUserID(l.ctx, claims.UserID, action, result)
 	if err != nil {
