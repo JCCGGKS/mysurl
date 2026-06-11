@@ -33,9 +33,9 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		utils.WriteJSONSuccess(w, r, map[string]any{
+		utils.WriteJSONSuccessWithExtData(w, r, map[string]any{
 			"short_code": "code9",
-		})
+		}, "cache_hit")
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", nil)
@@ -49,7 +49,7 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	if writer.userID != 101 || writer.action != "create_link" || writer.result != "success" {
 		t.Fatalf("unexpected payload persisted: %+v", writer)
 	}
-	if writer.reason != "" {
+	if writer.reason != "cache_hit" {
 		t.Fatalf("unexpected success reason: %q", writer.reason)
 	}
 }

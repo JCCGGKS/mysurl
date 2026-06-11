@@ -24,9 +24,10 @@ type operationLogRecord struct {
 }
 
 type operationLogResponse struct {
-	Code int             `json:"code"`
-	Msg  string          `json:"msg"`
-	Data json.RawMessage `json:"data"`
+	Code    int    `json:"code"`
+	Msg     string `json:"msg"`
+	Data    any    `json:"data"`
+	ExtData any    `json:"-"`
 }
 
 type operationLogAuthResponseData struct {
@@ -55,7 +56,8 @@ var operationLogProcesses = map[string]map[string]operationLogProcess{
 		"/api/v1/links": {
 			Action: model.UserOperationActionCreateLink,
 			OnSuccess: func(r *http.Request, resp operationLogResponse) string {
-				return ""
+				reason, _ := resp.ExtData.(string)
+				return reason
 			},
 			OnFailure: func(r *http.Request, resp operationLogResponse) string {
 				return resp.Msg
@@ -102,9 +104,12 @@ func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
-		resp, ok := parseOperationLogResponse(writer.body.Bytes())
+		resp, ok := getOperationLogResponse(writer)
 		if !ok {
-			return
+			resp, ok = parseOperationLogResponse(writer.body.Bytes())
+			if !ok {
+				return
+			}
 		}
 
 		record := &operationLogRecord{
@@ -157,12 +162,35 @@ func getOperationUserID(r *http.Request, resp operationLogResponse) uint64 {
 }
 
 func getOperationUserIDFromResponse(resp operationLogResponse) uint64 {
-	if len(bytes.TrimSpace(resp.Data)) == 0 {
+	if resp.Data == nil {
 		return 0
 	}
 
+	if dataMap, ok := resp.Data.(map[string]any); ok {
+		userMap, ok := dataMap["user"].(map[string]any)
+		if !ok {
+			return 0
+		}
+
+		idValue, ok := userMap["id"]
+		if !ok {
+			return 0
+		}
+
+		switch id := idValue.(type) {
+		case float64:
+			return uint64(id)
+		case uint64:
+			return id
+		}
+	}
+
 	var data operationLogAuthResponseData
-	if err := json.Unmarshal(resp.Data, &data); err != nil {
+	raw, err := json.Marshal(resp.Data)
+	if err != nil {
+		return 0
+	}
+	if err := json.Unmarshal(raw, &data); err != nil {
 		return 0
 	}
 
@@ -182,10 +210,25 @@ func parseOperationLogResponse(body []byte) (operationLogResponse, bool) {
 	return resp, true
 }
 
+func getOperationLogResponse(w http.ResponseWriter) (operationLogResponse, bool) {
+	resp, ok := utils.GetOperationLogResponse(w)
+	if !ok || resp == nil {
+		return operationLogResponse{}, false
+	}
+
+	return operationLogResponse{
+		Code:    resp.Code,
+		Msg:     resp.Msg,
+		Data:    resp.Data,
+		ExtData: resp.ExtData,
+	}, true
+}
+
 type responseCaptureWriter struct {
 	http.ResponseWriter
 	statusCode int
 	body       bytes.Buffer
+	resp       *utils.Response
 }
 
 func (w *responseCaptureWriter) WriteHeader(statusCode int) {
@@ -196,4 +239,13 @@ func (w *responseCaptureWriter) WriteHeader(statusCode int) {
 func (w *responseCaptureWriter) Write(data []byte) (int, error) {
 	w.body.Write(data)
 	return w.ResponseWriter.Write(data)
+}
+
+func (w *responseCaptureWriter) SetOperationLogResponse(resp utils.Response) {
+	respCopy := resp
+	w.resp = &respCopy
+}
+
+func (w *responseCaptureWriter) GetOperationLogResponse() *utils.Response {
+	return w.resp
 }

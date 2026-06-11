@@ -17,10 +17,15 @@ type Response struct {
 	Code      int    `json:"code"`
 	Msg       string `json:"msg"`
 	Data      any    `json:"data,omitempty"`
+	ExtData   any    `json:"-"`
 	Timestamp int64  `json:"timestamp"`
 }
 
 func Success(data any) Response {
+	return SuccessWithExtData(data, nil)
+}
+
+func SuccessWithExtData(data, extData any) Response {
 	if IsNil(data) {
 		data = nil
 	}
@@ -29,6 +34,7 @@ func Success(data any) Response {
 		Code:      CodeOK,
 		Msg:       MsgOK,
 		Data:      data,
+		ExtData:   extData,
 		Timestamp: time.Now().Unix(),
 	}
 }
@@ -89,15 +95,19 @@ func Conflict(message string) *HTTPError {
 func WriteJSONError(w http.ResponseWriter, r *http.Request, err error) {
 	var httpErr *HTTPError
 	if errors.As(err, &httpErr) {
-		httpx.WriteJsonCtx(r.Context(), w, httpErr.StatusCode, Error(httpErr.StatusCode, httpErr.Message))
+		writeJSONResponse(w, r, httpErr.StatusCode, Error(httpErr.StatusCode, httpErr.Message))
 		return
 	}
 
-	httpx.WriteJsonCtx(r.Context(), w, http.StatusInternalServerError, Error(http.StatusInternalServerError, err.Error()))
+	writeJSONResponse(w, r, http.StatusInternalServerError, Error(http.StatusInternalServerError, err.Error()))
 }
 
 func WriteJSONSuccess(w http.ResponseWriter, r *http.Request, data any) {
-	httpx.OkJsonCtx(r.Context(), w, Success(data))
+	WriteJSONSuccessWithExtData(w, r, data, nil)
+}
+
+func WriteJSONSuccessWithExtData(w http.ResponseWriter, r *http.Request, data, extData any) {
+	writeJSONResponse(w, r, http.StatusOK, SuccessWithExtData(data, extData))
 }
 
 func WriteRedirectError(w http.ResponseWriter, err error) {
@@ -108,4 +118,9 @@ func WriteRedirectError(w http.ResponseWriter, err error) {
 	}
 
 	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+func writeJSONResponse(w http.ResponseWriter, r *http.Request, statusCode int, resp Response) {
+	SetOperationLogResponse(w, resp)
+	httpx.WriteJsonCtx(r.Context(), w, statusCode, resp)
 }

@@ -22,11 +22,11 @@ func CreateLinkHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		l := logic.NewCreateLinkLogic(r.Context(), svcCtx)
-		resp, err := l.CreateLink(&req)
+		resp, extData, err := l.CreateLink(&req)
 		if err != nil {
 			utils.WriteJSONError(w, r, err)
 		} else {
-			utils.WriteJSONSuccess(w, r, resp)
+			utils.WriteJSONSuccessWithExtData(w, r, resp, extData)
 		}
 	}
 }

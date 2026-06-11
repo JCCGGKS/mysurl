@@ -24,7 +24,14 @@ type CreateLinkLogic struct {
 type createLinkResult struct {
 	ShortCode   string
 	OriginalURL string
+	Source      string
 }
+
+const (
+	createLinkSourceCacheHit = "cache_hit"
+	createLinkSourceDBHit    = "database_hit"
+	createLinkSourceCreated  = "created"
+)
 
 func NewCreateLinkLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CreateLinkLogic {
 	return &CreateLinkLogic{
@@ -37,24 +44,24 @@ func NewCreateLinkLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 // CreateLink validates the input URL, reuses an existing short link when the
 // normalized URL already exists, otherwise generates a short code, inserts the
 // mapping, and returns the final short-link payload.
-func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.CreateLinkResponse, err error) {
+func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.CreateLinkResponse, extData any, err error) {
 	if err := l.ensureCreateReady(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	claims, ok := utils.GetAuthClaims(l.ctx)
 	if !ok || claims.UserID == 0 {
-		return nil, utils.Unauthorized("authorization token is required")
+		return nil, nil, utils.Unauthorized("authorization token is required")
 	}
 	if err := utils.ValidateLongURL(req.LongURL); err != nil {
-		return nil, utils.BadRequest(err.Error())
+		return nil, nil, utils.BadRequest(err.Error())
 	}
 	result, err := l.createOrReuseLink(claims.UserID, req.LongURL)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return l.buildCreateLinkResponse(result.ShortCode, result.OriginalURL), nil
+	return l.buildCreateLinkResponse(result.ShortCode, result.OriginalURL), result.Source, nil
 }
 
 func (l *CreateLinkLogic) ensureCreateReady() error {
@@ -81,6 +88,7 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 		return &createLinkResult{
 			ShortCode:   shortCode,
 			OriginalURL: normalizedURL,
+			Source:      createLinkSourceCacheHit,
 		}, nil
 	}
 
@@ -91,6 +99,7 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 		return &createLinkResult{
 			ShortCode:   record.ShortCode,
 			OriginalURL: record.OriginalURL,
+			Source:      createLinkSourceDBHit,
 		}, nil
 	}
 
@@ -105,6 +114,7 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 	return &createLinkResult{
 		ShortCode:   shortCode,
 		OriginalURL: normalizedURL,
+		Source:      createLinkSourceCreated,
 	}, nil
 }
 
