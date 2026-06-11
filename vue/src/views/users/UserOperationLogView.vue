@@ -30,6 +30,7 @@ const actionOptions = [
 const resultOptions = [
   { value: '', label: '全部结果' },
   { value: 'success', label: '成功' },
+  { value: 'partial_success', label: '部分成功' },
   { value: 'failed', label: '失败' },
 ]
 
@@ -171,6 +172,7 @@ function formatAction(action) {
 
 function formatResult(result) {
   if (result === 'success') return '成功'
+  if (result === 'partial_success') return '部分成功'
   if (result === 'failed') return '失败'
   return result || '--'
 }

@@ -95,12 +95,3 @@ func (l *BatchCreateLinksLogic) BatchCreateLinks(req *types.BatchCreateLinksRequ
 	}, nil
 }
 
-func firstBatchFailureReason(items []types.BatchCreateLinkItem) string {
-	for _, item := range items {
-		if item.Error != "" {
-			return item.Error
-		}
-	}
-
-	return "batch create failed"
-}

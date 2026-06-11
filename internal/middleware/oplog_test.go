@@ -93,6 +93,8 @@ func TestOperationLogMiddlewareWriteLoginUserIDFromResponse(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	req.Header.Set("User-Agent", "test-client")
+	req.Header.Set("X-Forwarded-For", "10.10.10.10, 10.10.10.11")
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -104,6 +106,9 @@ func TestOperationLogMiddlewareWriteLoginUserIDFromResponse(t *testing.T) {
 	}
 	if writer.action != "login" || writer.result != "success" {
 		t.Fatalf("unexpected payload persisted: %+v", writer)
+	}
+	if writer.reason != "platform=test-client ip=10.10.10.10" {
+		t.Fatalf("unexpected success reason: %q", writer.reason)
 	}
 }
 
@@ -144,5 +149,80 @@ func TestOperationLogMiddlewareIgnoreInsertError(t *testing.T) {
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unexpected status code: %d", rec.Code)
+	}
+}
+
+func TestOperationLogMiddlewareWriteBatchCreateCounts(t *testing.T) {
+	writer := &stubOperationLogWriter{}
+	m := NewOperationLogMiddleware(writer)
+
+	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
+		utils.WriteJSONSuccess(w, r, map[string]any{
+			"items":         []any{},
+			"total":         3,
+			"success_count": 2,
+			"failed_count":  1,
+		})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links/batch", nil)
+	req = req.WithContext(utils.WithAuthClaims(req.Context(), &utils.AuthClaims{UserID: 101}))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if !writer.called {
+		t.Fatalf("expected insert to be called")
+	}
+	if writer.result != "partial_success" {
+		t.Fatalf("unexpected batch result: %q", writer.result)
+	}
+	if writer.reason != "success_count=2 failed_count=1" {
+		t.Fatalf("unexpected batch success reason: %q", writer.reason)
+	}
+}
+
+func TestOperationLogMiddlewareWriteBatchCreateAllSuccess(t *testing.T) {
+	writer := &stubOperationLogWriter{}
+	m := NewOperationLogMiddleware(writer)
+
+	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
+		utils.WriteJSONSuccess(w, r, map[string]any{
+			"items":         []any{},
+			"total":         2,
+			"success_count": 2,
+			"failed_count":  0,
+		})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links/batch", nil)
+	req = req.WithContext(utils.WithAuthClaims(req.Context(), &utils.AuthClaims{UserID: 101}))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if writer.result != "success" {
+		t.Fatalf("unexpected batch result: %q", writer.result)
+	}
+}
+
+func TestOperationLogMiddlewareWriteBatchCreateAllFailed(t *testing.T) {
+	writer := &stubOperationLogWriter{}
+	m := NewOperationLogMiddleware(writer)
+
+	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
+		utils.WriteJSONSuccess(w, r, map[string]any{
+			"items":         []any{},
+			"total":         2,
+			"success_count": 0,
+			"failed_count":  2,
+		})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links/batch", nil)
+	req = req.WithContext(utils.WithAuthClaims(req.Context(), &utils.AuthClaims{UserID: 101}))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if writer.result != "failed" {
+		t.Fatalf("unexpected batch result: %q", writer.result)
 	}
 }

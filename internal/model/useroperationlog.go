@@ -8,6 +8,7 @@ const (
 	UserOperationActionCreateLinkBatch = "create_link_batch"
 	UserOperationResultSuccess         = "success"
 	UserOperationResultFailed          = "failed"
+	UserOperationResultPartialSuccess  = "partial_success"
 )
 
 type UserOperationLog struct {
