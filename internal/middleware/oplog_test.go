@@ -33,9 +33,9 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		utils.WriteJSONSuccessWithExtData(w, r, map[string]any{
+		utils.WriteJSONSuccess(w, r, map[string]any{
 			"short_code": "code9",
-		}, "cache_hit")
+		}, utils.WithResponseExtData("cache_hit"))
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", nil)

@@ -27,7 +27,7 @@ type operationLogResponse struct {
 	Code    int    `json:"code"`
 	Msg     string `json:"msg"`
 	Data    any    `json:"data"`
-	ExtData any    `json:"-"`
+	ExtData any    `json:"extdata"`
 }
 
 type operationLogAuthResponseData struct {
@@ -104,12 +104,9 @@ func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
-		resp, ok := getOperationLogResponse(writer)
+		resp, ok := parseOperationLogResponse(writer.body.Bytes())
 		if !ok {
-			resp, ok = parseOperationLogResponse(writer.body.Bytes())
-			if !ok {
-				return
-			}
+			return
 		}
 
 		record := &operationLogRecord{
@@ -210,25 +207,10 @@ func parseOperationLogResponse(body []byte) (operationLogResponse, bool) {
 	return resp, true
 }
 
-func getOperationLogResponse(w http.ResponseWriter) (operationLogResponse, bool) {
-	resp, ok := utils.GetOperationLogResponse(w)
-	if !ok || resp == nil {
-		return operationLogResponse{}, false
-	}
-
-	return operationLogResponse{
-		Code:    resp.Code,
-		Msg:     resp.Msg,
-		Data:    resp.Data,
-		ExtData: resp.ExtData,
-	}, true
-}
-
 type responseCaptureWriter struct {
 	http.ResponseWriter
 	statusCode int
 	body       bytes.Buffer
-	resp       *utils.Response
 }
 
 func (w *responseCaptureWriter) WriteHeader(statusCode int) {
@@ -239,13 +221,4 @@ func (w *responseCaptureWriter) WriteHeader(statusCode int) {
 func (w *responseCaptureWriter) Write(data []byte) (int, error) {
 	w.body.Write(data)
 	return w.ResponseWriter.Write(data)
-}
-
-func (w *responseCaptureWriter) SetOperationLogResponse(resp utils.Response) {
-	respCopy := resp
-	w.resp = &respCopy
-}
-
-func (w *responseCaptureWriter) GetOperationLogResponse() *utils.Response {
-	return w.resp
 }

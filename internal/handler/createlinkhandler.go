@@ -26,7 +26,7 @@ func CreateLinkHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if err != nil {
 			utils.WriteJSONError(w, r, err)
 		} else {
-			utils.WriteJSONSuccessWithExtData(w, r, resp, extData)
+			utils.WriteJSONSuccess(w, r, resp, utils.WithResponseExtData(extData))
 		}
 	}
 }
