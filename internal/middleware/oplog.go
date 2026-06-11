@@ -1,16 +1,105 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 
+	"mysurl1/internal/model"
 	"mysurl1/internal/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type operationLogWriter interface {
-	Insert(ctx context.Context, userID uint64, action, result, reason string, targetCode *string) error
+	Insert(ctx context.Context, userID uint64, action, result, reason string) error
+}
+
+type operationLogRecord struct {
+	UserID uint64
+	Action string
+	Result string
+	Reason string
+}
+
+type operationLogResponse struct {
+	Code int             `json:"code"`
+	Msg  string          `json:"msg"`
+	Data json.RawMessage `json:"data"`
+}
+
+type operationLogAuthResponseData struct {
+	User struct {
+		ID uint64 `json:"id"`
+	} `json:"user"`
+}
+
+type operationLogProcess struct {
+	Action    string
+	OnSuccess func(r *http.Request, resp operationLogResponse) *operationLogRecord
+	OnFailure func(r *http.Request, resp operationLogResponse) *operationLogRecord
+}
+
+var operationLogProcesses = map[string]map[string]operationLogProcess{
+	http.MethodPost: {
+		"/api/v1/auth/login": {
+			Action: model.UserOperationActionLogin,
+			OnSuccess: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
+				return &operationLogRecord{
+					UserID: getOperationUserID(r, resp),
+					Action: model.UserOperationActionLogin,
+					Result: model.UserOperationResultSuccess,
+				}
+			},
+			OnFailure: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
+				return &operationLogRecord{
+					UserID: getOperationUserID(r, resp),
+					Action: model.UserOperationActionLogin,
+					Result: model.UserOperationResultFailed,
+					Reason: resp.Msg,
+				}
+			},
+		},
+		"/api/v1/links": {
+			Action: model.UserOperationActionCreateLink,
+			OnSuccess: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
+				return &operationLogRecord{
+					UserID: getOperationUserID(r, resp),
+					Action: model.UserOperationActionCreateLink,
+					Result: model.UserOperationResultSuccess,
+				}
+			},
+			OnFailure: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
+				return &operationLogRecord{
+					UserID: getOperationUserID(r, resp),
+					Action: model.UserOperationActionCreateLink,
+					Result: model.UserOperationResultFailed,
+					Reason: resp.Msg,
+				}
+			},
+		},
+		"/api/v1/links/batch": {
+			Action: model.UserOperationActionCreateLinkBatch,
+			OnSuccess: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
+				return &operationLogRecord{
+					UserID: getOperationUserID(r, resp),
+					Action: model.UserOperationActionCreateLinkBatch,
+					Result: model.UserOperationResultSuccess,
+				}
+			},
+			OnFailure: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
+				return &operationLogRecord{
+					UserID: getOperationUserID(r, resp),
+					Action: model.UserOperationActionCreateLinkBatch,
+					Result: model.UserOperationResultFailed,
+					Reason: resp.Msg,
+				}
+			},
+		},
+	},
+	http.MethodGet:    {},
+	http.MethodDelete: {},
 }
 
 type OperationLogMiddleware struct {
@@ -23,35 +112,105 @@ func NewOperationLogMiddleware(dao operationLogWriter) *OperationLogMiddleware {
 
 func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := utils.WithOperationLogHolder(r.Context())
-		writer := &statusWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-		next(writer, r.WithContext(ctx))
-
-		payload, ok := utils.GetOperationLogPayload(ctx)
+		process, ok := lookupOperationLogProcess(r.Method, r.URL.Path)
 		if !ok {
+			next(w, r)
 			return
 		}
+
+		writer := &responseCaptureWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+
+		next(writer, r)
+
 		if m == nil || m.dao == nil {
 			return
 		}
 
-		if err := m.dao.Insert(ctx, payload.UserID, payload.Action, payload.Result, payload.Reason, payload.TargetCode); err != nil {
+		resp, ok := parseOperationLogResponse(writer.body.Bytes())
+		if !ok {
+			return
+		}
+
+		var record *operationLogRecord
+		if resp.Code == utils.CodeOK {
+			record = process.OnSuccess(r, resp)
+		} else {
+			record = process.OnFailure(r, resp)
+		}
+		if record == nil || record.Action == "" || record.Result == "" {
+			return
+		}
+
+		if err := m.dao.Insert(r.Context(), record.UserID, record.Action, record.Result, record.Reason); err != nil {
 			logx.Errorf("write user operation log failed: %v", err)
 		}
 	}
 }
 
-type statusWriter struct {
-	http.ResponseWriter
-	statusCode int
+func lookupOperationLogProcess(method, path string) (operationLogProcess, bool) {
+	routeMap, ok := operationLogProcesses[method]
+	if !ok {
+		return operationLogProcess{}, false
+	}
+
+	process, ok := routeMap[path]
+	return process, ok
 }
 
-func (w *statusWriter) WriteHeader(statusCode int) {
+func getOperationUserID(r *http.Request, resp operationLogResponse) uint64 {
+	if r == nil {
+		return 0
+	}
+
+	claims, ok := utils.GetAuthClaims(r.Context())
+	if !ok || claims == nil {
+		return getOperationUserIDFromResponse(resp)
+	}
+
+	return claims.UserID
+}
+
+func getOperationUserIDFromResponse(resp operationLogResponse) uint64 {
+	if len(bytes.TrimSpace(resp.Data)) == 0 {
+		return 0
+	}
+
+	var data operationLogAuthResponseData
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		return 0
+	}
+
+	return data.User.ID
+}
+
+func parseOperationLogResponse(body []byte) (operationLogResponse, bool) {
+	var resp operationLogResponse
+	if len(bytes.TrimSpace(body)) == 0 {
+		return resp, false
+	}
+
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return resp, false
+	}
+
+	return resp, true
+}
+
+type responseCaptureWriter struct {
+	http.ResponseWriter
+	statusCode int
+	body       bytes.Buffer
+}
+
+func (w *responseCaptureWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
-func (w *statusWriter) Write(data []byte) (int, error) {
+func (w *responseCaptureWriter) Write(data []byte) (int, error) {
+	w.body.Write(data)
 	return w.ResponseWriter.Write(data)
 }

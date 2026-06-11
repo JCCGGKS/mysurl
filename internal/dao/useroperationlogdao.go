@@ -18,15 +18,14 @@ func NewUserOperationLogDAO(conn sqlx.SqlConn) *UserOperationLogDAO {
 	return &UserOperationLogDAO{conn: conn}
 }
 
-func (d *UserOperationLogDAO) Insert(ctx context.Context, userID uint64, action, result, reason string, targetCode *string) error {
+func (d *UserOperationLogDAO) Insert(ctx context.Context, userID uint64, action, result, reason string) error {
 	query := `
 INSERT INTO user_operation_logs (
 	user_id,
 	action,
 	result,
-	reason,
-	target_code
-) VALUES (?, ?, ?, ?, ?)
+	reason
+) VALUES (?, ?, ?, ?)
 `
 
 	var reasonValue any
@@ -34,7 +33,7 @@ INSERT INTO user_operation_logs (
 		reasonValue = reason
 	}
 
-	_, err := d.conn.ExecCtx(ctx, query, userID, action, result, reasonValue, targetCode)
+	_, err := d.conn.ExecCtx(ctx, query, userID, action, result, reasonValue)
 	return err
 }
 

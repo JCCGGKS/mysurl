@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	codestrategy "mysurl1/internal/logic/code_strategy"
-	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -48,12 +47,10 @@ func (l *CreateLinkLogic) CreateLink(req *types.CreateLinkRequest) (resp *types.
 		return nil, utils.Unauthorized("authorization token is required")
 	}
 	if err := utils.ValidateLongURL(req.LongURL); err != nil {
-		l.setCreateOperationLog(claims.UserID, "", model.UserOperationResultFailed, err.Error())
 		return nil, utils.BadRequest(err.Error())
 	}
 	result, err := l.createOrReuseLink(claims.UserID, req.LongURL)
 	if err != nil {
-		l.setCreateOperationLog(claims.UserID, "", model.UserOperationResultFailed, err.Error())
 		return nil, err
 	}
 
@@ -80,7 +77,6 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 
 	shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, userID, normalizedURL)
 	if cacheErr == nil && shortCode != "" {
-		l.setCreateOperationLog(userID, shortCode, model.UserOperationResultSuccess, "cache hit")
 		l.Infof("create link hit long->short cache, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, shortCode)
 		return &createLinkResult{
 			ShortCode:   shortCode,
@@ -91,7 +87,6 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 	record, err := l.svcCtx.ShortLinkDAO.FindAvailableByOriginalURL(l.ctx, userID, normalizedURL)
 	if err == nil && record != nil {
 		l.fillCreateCaches(userID, normalizedURL, record.ShortCode)
-		l.setCreateOperationLog(userID, record.ShortCode, model.UserOperationResultSuccess, "database hit")
 		l.Infof("create link hit mysql by user_id+original_url, user_id=%d normalized_url=%s short_code=%s", userID, normalizedURL, record.ShortCode)
 		return &createLinkResult{
 			ShortCode:   record.ShortCode,
@@ -106,7 +101,6 @@ func (l *CreateLinkLogic) createOrReuseLink(userID uint64, longURL string) (*cre
 	}
 
 	l.fillCreateCaches(userID, normalizedURL, shortCode)
-	l.setCreateOperationLog(userID, shortCode, model.UserOperationResultSuccess, "create success")
 	l.Infof("create link generated new short code, provider=%s user_id=%d normalized_url=%s short_code=%s", l.shortCodeProvider(), userID, normalizedURL, shortCode)
 	return &createLinkResult{
 		ShortCode:   shortCode,
@@ -154,19 +148,4 @@ func (l *CreateLinkLogic) buildCreateLinkResponse(shortCode, originalURL string)
 		ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, shortCode),
 		OriginalURL: originalURL,
 	}
-}
-
-func (l *CreateLinkLogic) setCreateOperationLog(userID uint64, shortCode, result, reason string) {
-	payload := utils.OperationLogPayload{
-		UserID: userID,
-		Action: model.UserOperationActionCreateLink,
-		Result: result,
-		Reason: reason,
-	}
-	if shortCode != "" {
-		targetCodeCopy := shortCode
-		payload.TargetCode = &targetCodeCopy
-	}
-
-	utils.SetOperationLogPayload(l.ctx, payload)
 }

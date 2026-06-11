@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 
-	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -44,46 +43,26 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.AuthResponse, e
 
 	username := utils.NormalizeUsername(req.Username)
 	if err := utils.ValidateUsername(username); err != nil {
-		l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
 		return nil, err
 	}
 	if req.Password == "" {
-		err := utils.BadRequest("password is required")
-		l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
-		return nil, err
+		return nil, utils.BadRequest("password is required")
 	}
 
 	user, err := l.svcCtx.UserDAO.FindByUsername(l.ctx, username)
 	if err != nil {
 		if errors.Is(err, sqlx.ErrNotFound) {
-			err := utils.Unauthorized("username or password is invalid")
-			l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
-			return nil, err
+			return nil, utils.Unauthorized("username or password is invalid")
 		}
-		err := utils.InternalError("query user failed: " + err.Error())
-		l.setLoginOperationLog(0, model.UserOperationResultFailed, err.Error())
-		return nil, err
+		return nil, utils.InternalError("query user failed: " + err.Error())
 	}
 
 	if err := utils.ComparePassword(user.PasswordHash, req.Password, authConf.PasswordPepper); err != nil {
-		authErr := utils.Unauthorized("username or password is invalid")
-		l.setLoginOperationLog(user.ID, model.UserOperationResultFailed, authErr.Error())
-		return nil, authErr
+		return nil, utils.Unauthorized("username or password is invalid")
 	}
-
-	l.setLoginOperationLog(user.ID, model.UserOperationResultSuccess, "")
 
 	return utils.BuildAuthResponse(authConf, utils.AuthClaims{
 		UserID:   user.ID,
 		Username: user.Username,
-	})
-}
-
-func (l *LoginLogic) setLoginOperationLog(userID uint64, result, reason string) {
-	utils.SetOperationLogPayload(l.ctx, utils.OperationLogPayload{
-		UserID: userID,
-		Action: model.UserOperationActionLogin,
-		Result: result,
-		Reason: reason,
 	})
 }

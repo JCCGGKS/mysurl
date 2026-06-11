@@ -8,5 +8,6 @@ CREATE TABLE `user_operation_logs` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_user_id_action` (`user_id`, `action`)
+  KEY `idx_user_id_action` (`user_id`, `action`),
+  KEY `idx_user_id_result` (`user_id`, `result`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户操作日志表';

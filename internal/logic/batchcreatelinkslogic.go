@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -34,14 +33,10 @@ func (l *BatchCreateLinksLogic) BatchCreateLinks(req *types.BatchCreateLinksRequ
 		return nil, err
 	}
 	if len(req.LongURLs) == 0 {
-		err := utils.BadRequest("long_urls is required")
-		l.setBatchOperationLog(0, model.UserOperationResultFailed, err.Error())
-		return nil, err
+		return nil, utils.BadRequest("long_urls is required")
 	}
 	if len(req.LongURLs) > batchCreateLinksLimit {
-		err := utils.BadRequest("long_urls exceeds limit 20")
-		l.setBatchOperationLog(0, model.UserOperationResultFailed, err.Error())
-		return nil, err
+		return nil, utils.BadRequest("long_urls exceeds limit 20")
 	}
 
 	claims, ok := utils.GetAuthClaims(l.ctx)
@@ -92,27 +87,12 @@ func (l *BatchCreateLinksLogic) BatchCreateLinks(req *types.BatchCreateLinksRequ
 		successCount++
 	}
 
-	if len(req.LongURLs)-successCount > 0 {
-		l.setBatchOperationLog(claims.UserID, model.UserOperationResultFailed, firstBatchFailureReason(items))
-	} else {
-		l.setBatchOperationLog(claims.UserID, model.UserOperationResultSuccess, "")
-	}
-
 	return &types.BatchCreateLinksResponse{
 		Items:        items,
 		Total:        len(req.LongURLs),
 		SuccessCount: successCount,
 		FailedCount:  len(req.LongURLs) - successCount,
 	}, nil
-}
-
-func (l *BatchCreateLinksLogic) setBatchOperationLog(userID uint64, result, reason string) {
-	utils.SetOperationLogPayload(l.ctx, utils.OperationLogPayload{
-		UserID: userID,
-		Action: model.UserOperationActionCreateLinkBatch,
-		Result: result,
-		Reason: reason,
-	})
 }
 
 func firstBatchFailureReason(items []types.BatchCreateLinkItem) string {

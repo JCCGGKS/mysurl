@@ -36,7 +36,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		},
 	)
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{operationLogMiddleware.Handle, authMiddleware.Handle},
+		[]rest.Middleware{authMiddleware.Handle, operationLogMiddleware.Handle},
 		rest.Route{
 			Method:  http.MethodPost,
 			Path:    "/api/v1/links",
@@ -44,7 +44,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		},
 	))
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{operationLogMiddleware.Handle, authMiddleware.Handle},
+		[]rest.Middleware{authMiddleware.Handle, operationLogMiddleware.Handle},
 		rest.Route{
 			Method:  http.MethodPost,
 			Path:    "/api/v1/links/batch",

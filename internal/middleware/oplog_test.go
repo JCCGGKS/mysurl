@@ -11,22 +11,20 @@ import (
 )
 
 type stubOperationLogWriter struct {
-	called     bool
-	userID     uint64
-	action     string
-	result     string
-	reason     string
-	targetCode *string
-	err        error
+	called bool
+	userID uint64
+	action string
+	result string
+	reason string
+	err    error
 }
 
-func (s *stubOperationLogWriter) Insert(_ context.Context, userID uint64, action, result, reason string, targetCode *string) error {
+func (s *stubOperationLogWriter) Insert(_ context.Context, userID uint64, action, result, reason string) error {
 	s.called = true
 	s.userID = userID
 	s.action = action
 	s.result = result
 	s.reason = reason
-	s.targetCode = targetCode
 	return s.err
 }
 
@@ -35,17 +33,13 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		targetCode := "code9"
-		utils.SetOperationLogPayload(r.Context(), utils.OperationLogPayload{
-			UserID:     101,
-			Action:     "create_link",
-			Result:     "success",
-			TargetCode: &targetCode,
+		utils.WriteJSONSuccess(w, r, map[string]any{
+			"short_code": "code9",
 		})
-		w.WriteHeader(http.StatusOK)
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", nil)
+	req = req.WithContext(utils.WithAuthClaims(req.Context(), &utils.AuthClaims{UserID: 101}))
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -55,23 +49,17 @@ func TestOperationLogMiddlewareWriteOnSuccess(t *testing.T) {
 	if writer.userID != 101 || writer.action != "create_link" || writer.result != "success" {
 		t.Fatalf("unexpected payload persisted: %+v", writer)
 	}
-	if writer.targetCode == nil || *writer.targetCode != "code9" {
-		t.Fatalf("unexpected target code: %+v", writer.targetCode)
+	if writer.reason != "" {
+		t.Fatalf("unexpected success reason: %q", writer.reason)
 	}
 }
 
-func TestOperationLogMiddlewareWriteOnFailureStatus(t *testing.T) {
+func TestOperationLogMiddlewareWriteOnFailure(t *testing.T) {
 	writer := &stubOperationLogWriter{}
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		utils.SetOperationLogPayload(r.Context(), utils.OperationLogPayload{
-			UserID: 101,
-			Action: "login",
-			Result: "failed",
-			Reason: "username or password is invalid",
-		})
-		w.WriteHeader(http.StatusUnauthorized)
+		utils.WriteJSONError(w, r, utils.Unauthorized("username or password is invalid"))
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
@@ -79,19 +67,52 @@ func TestOperationLogMiddlewareWriteOnFailureStatus(t *testing.T) {
 	handler(rec, req)
 
 	if !writer.called {
-		t.Fatalf("expected insert on failure status when payload exists")
+		t.Fatalf("expected insert on failure response")
 	}
-	if writer.result != "failed" || writer.reason != "username or password is invalid" {
+	if writer.action != "login" || writer.result != "failed" {
 		t.Fatalf("unexpected failure payload persisted: %+v", writer)
+	}
+	if writer.reason != "username or password is invalid" {
+		t.Fatalf("unexpected failure reason: %q", writer.reason)
 	}
 }
 
-func TestOperationLogMiddlewareSkipWithoutPayload(t *testing.T) {
+func TestOperationLogMiddlewareWriteLoginUserIDFromResponse(t *testing.T) {
 	writer := &stubOperationLogWriter{}
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+		utils.WriteJSONSuccess(w, r, map[string]any{
+			"token":      "jwt-token",
+			"expires_at": 1234567890,
+			"user": map[string]any{
+				"id":       uint64(88),
+				"username": "tester",
+			},
+		})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if !writer.called {
+		t.Fatalf("expected insert to be called")
+	}
+	if writer.userID != 88 {
+		t.Fatalf("unexpected user id persisted: %d", writer.userID)
+	}
+	if writer.action != "login" || writer.result != "success" {
+		t.Fatalf("unexpected payload persisted: %+v", writer)
+	}
+}
+
+func TestOperationLogMiddlewareSkipUnknownRoute(t *testing.T) {
+	writer := &stubOperationLogWriter{}
+	m := NewOperationLogMiddleware(writer)
+
+	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
+		utils.WriteJSONSuccess(w, r, map[string]any{"ok": true})
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-operation-logs", nil)
@@ -99,7 +120,7 @@ func TestOperationLogMiddlewareSkipWithoutPayload(t *testing.T) {
 	handler(rec, req)
 
 	if writer.called {
-		t.Fatalf("expected insert to be skipped without payload")
+		t.Fatalf("expected insert to be skipped without process")
 	}
 }
 
@@ -108,17 +129,14 @@ func TestOperationLogMiddlewareIgnoreInsertError(t *testing.T) {
 	m := NewOperationLogMiddleware(writer)
 
 	handler := m.Handle(func(w http.ResponseWriter, r *http.Request) {
-		utils.SetOperationLogPayload(r.Context(), utils.OperationLogPayload{
-			UserID: 101,
-			Action: "login",
-			Result: "success",
+		utils.WriteJSONSuccess(w, r, map[string]any{
+			"short_code": "code9",
 		})
-		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", nil)
+	req = req.WithContext(utils.WithAuthClaims(req.Context(), &utils.AuthClaims{UserID: 101}))
 	rec := httptest.NewRecorder()
-
 	handler(rec, req)
 
 	if !writer.called {
