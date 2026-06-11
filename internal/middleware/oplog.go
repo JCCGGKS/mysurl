@@ -37,64 +37,37 @@ type operationLogAuthResponseData struct {
 
 type operationLogProcess struct {
 	Action    string
-	OnSuccess func(r *http.Request, resp operationLogResponse) *operationLogRecord
-	OnFailure func(r *http.Request, resp operationLogResponse) *operationLogRecord
+	OnSuccess func(r *http.Request, resp operationLogResponse) string
+	OnFailure func(r *http.Request, resp operationLogResponse) string
 }
 
 var operationLogProcesses = map[string]map[string]operationLogProcess{
 	http.MethodPost: {
 		"/api/v1/auth/login": {
 			Action: model.UserOperationActionLogin,
-			OnSuccess: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
-				return &operationLogRecord{
-					UserID: getOperationUserID(r, resp),
-					Action: model.UserOperationActionLogin,
-					Result: model.UserOperationResultSuccess,
-				}
+			OnSuccess: func(r *http.Request, resp operationLogResponse) string {
+				return ""
 			},
-			OnFailure: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
-				return &operationLogRecord{
-					UserID: getOperationUserID(r, resp),
-					Action: model.UserOperationActionLogin,
-					Result: model.UserOperationResultFailed,
-					Reason: resp.Msg,
-				}
+			OnFailure: func(r *http.Request, resp operationLogResponse) string {
+				return resp.Msg
 			},
 		},
 		"/api/v1/links": {
 			Action: model.UserOperationActionCreateLink,
-			OnSuccess: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
-				return &operationLogRecord{
-					UserID: getOperationUserID(r, resp),
-					Action: model.UserOperationActionCreateLink,
-					Result: model.UserOperationResultSuccess,
-				}
+			OnSuccess: func(r *http.Request, resp operationLogResponse) string {
+				return ""
 			},
-			OnFailure: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
-				return &operationLogRecord{
-					UserID: getOperationUserID(r, resp),
-					Action: model.UserOperationActionCreateLink,
-					Result: model.UserOperationResultFailed,
-					Reason: resp.Msg,
-				}
+			OnFailure: func(r *http.Request, resp operationLogResponse) string {
+				return resp.Msg
 			},
 		},
 		"/api/v1/links/batch": {
 			Action: model.UserOperationActionCreateLinkBatch,
-			OnSuccess: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
-				return &operationLogRecord{
-					UserID: getOperationUserID(r, resp),
-					Action: model.UserOperationActionCreateLinkBatch,
-					Result: model.UserOperationResultSuccess,
-				}
+			OnSuccess: func(r *http.Request, resp operationLogResponse) string {
+				return ""
 			},
-			OnFailure: func(r *http.Request, resp operationLogResponse) *operationLogRecord {
-				return &operationLogRecord{
-					UserID: getOperationUserID(r, resp),
-					Action: model.UserOperationActionCreateLinkBatch,
-					Result: model.UserOperationResultFailed,
-					Reason: resp.Msg,
-				}
+			OnFailure: func(r *http.Request, resp operationLogResponse) string {
+				return resp.Msg
 			},
 		},
 	},
@@ -134,13 +107,23 @@ func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
-		var record *operationLogRecord
-		if resp.Code == utils.CodeOK {
-			record = process.OnSuccess(r, resp)
-		} else {
-			record = process.OnFailure(r, resp)
+		record := &operationLogRecord{
+			UserID: getOperationUserID(r, resp),
+			Action: process.Action,
 		}
-		if record == nil || record.Action == "" || record.Result == "" {
+
+		if resp.Code == utils.CodeOK {
+			record.Result = model.UserOperationResultSuccess
+			if process.OnSuccess != nil {
+				record.Reason = process.OnSuccess(r, resp)
+			}
+		} else {
+			record.Result = model.UserOperationResultFailed
+			if process.OnFailure != nil {
+				record.Reason = process.OnFailure(r, resp)
+			}
+		}
+		if record.Action == "" || record.Result == "" {
 			return
 		}
 
