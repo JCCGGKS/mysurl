@@ -38,6 +38,13 @@ const batchLines = computed(() =>
     .filter(Boolean),
 )
 
+const singleLines = computed(() =>
+  longUrl.value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean),
+)
+
 const batchSuccessItems = computed(() =>
   Array.isArray(batchResult.value?.items)
     ? batchResult.value.items.filter((item) => item.success && item.short_url)
@@ -69,6 +76,14 @@ function validateUrl(value) {
   return ''
 }
 
+function validateSingleUrl(value) {
+  if (singleLines.value.length > 1) {
+    return '单条创建最多支持 1 条长链接，请切换到批量创建'
+  }
+
+  return validateUrl(value)
+}
+
 function validateBatchUrls(values) {
   if (values.length === 0) return '请输入至少一条长链接'
   if (values.length > 20) return '单次最多支持 20 条长链接'
@@ -96,7 +111,7 @@ async function submit() {
 }
 
 async function submitSingle() {
-  errorMessage.value = validateUrl(longUrl.value)
+  errorMessage.value = validateSingleUrl(longUrl.value)
   if (errorMessage.value) return
 
   loading.value = true
@@ -281,10 +296,11 @@ async function writeToClipboard(value) {
             id="long-url"
             v-model="longUrl"
             class="url-input"
-            rows="5"
+            rows="4"
             placeholder="https://example.com/article/123?from=campaign"
             :disabled="loading"
           ></textarea>
+          <p class="batch-help-text">当前 {{ singleLines.length }} 条，单条创建最多 1 条。</p>
         </template>
 
         <template v-else>
