@@ -38,6 +38,10 @@ func (m *CodeManager) Register(generator Generator) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.generators == nil {
+		m.generators = make(map[string]Generator)
+	}
+
 	m.generators[generator.Provider()] = generator
 }
 
