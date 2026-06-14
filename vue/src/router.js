@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { clearAuth, getToken } from './services/auth'
+import { clearAuth, getAccessToken } from './services/auth'
 import LoginView from './views/auth/LoginView.vue'
 import RegisterView from './views/auth/RegisterView.vue'
 import HomeView from './views/home/HomeView.vue'
@@ -13,7 +13,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: () => (getToken() ? '/app/home' : '/login'),
+      redirect: () => (getAccessToken() ? '/app/home' : '/login'),
     },
     {
       path: '/login',
@@ -74,7 +74,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = getToken()
+  const token = getAccessToken()
 
   if (to.meta.requiresAuth && !token) {
     return { name: 'login' }

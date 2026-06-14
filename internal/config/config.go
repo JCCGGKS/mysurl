@@ -40,9 +40,10 @@ type RedisConf struct {
 }
 
 type AuthConf struct {
-	JWTSecret      string `json:",optional"`
-	ExpireSeconds  int64  `json:",default=86400"`
-	PasswordPepper string `json:",optional"`
+	JWTSecret           string `json:",optional"`
+	AccessExpireSeconds int64  `json:",default=900"`
+	RefreshExpireSeconds int64 `json:",default=604800"`
+	PasswordPepper      string `json:",optional"`
 }
 
 type ShortConf struct {

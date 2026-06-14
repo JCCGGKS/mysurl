@@ -24,6 +24,12 @@ type operationLogProcess struct {
 	OnSuccess func(r *http.Request, resp utils.Response) string
 	OnFailure func(r *http.Request, resp utils.Response) string
 }
+type OperationLogPayload struct {
+	UserID uint64
+	Action string
+	Result string
+	Reason string
+}
 
 var operationLogProcesses = map[string]map[string]operationLogProcess{
 	http.MethodPost: {
@@ -93,7 +99,7 @@ func (m *OperationLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
-		record := &utils.OperationLogPayload{
+		record := &OperationLogPayload{
 			UserID: getOperationUserID(r, resp),
 			Action: process.Action,
 		}

@@ -6,6 +6,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"time"
 
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
@@ -30,7 +31,7 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.AuthResponse, err error) {
-	authConf, err := ensureAuthConfig(l.svcCtx.Config.Auth)
+	authConf, err := utils.EnsureAuthConfig(l.svcCtx.Config.Auth)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +40,9 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.AuthResponse, e
 	}
 	if l.svcCtx.UserDAO == nil {
 		return nil, utils.InternalError("user dao is not configured")
+	}
+	if l.svcCtx.UserRefreshTokenDAO == nil {
+		return nil, utils.InternalError("user refresh token dao is not configured")
 	}
 
 	username := utils.NormalizeUsername(req.Username)
@@ -61,8 +65,22 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.AuthResponse, e
 		return nil, utils.Unauthorized("username or password is invalid")
 	}
 
-	return utils.BuildAuthResponse(authConf, utils.AuthClaims{
+	authResp, err := utils.BuildAuthResponse(authConf, utils.AuthClaims{
 		UserID:   user.ID,
 		Username: user.Username,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := l.svcCtx.UserRefreshTokenDAO.Insert(
+		l.ctx,
+		user.ID,
+		utils.HashRefreshToken(authResp.RefreshToken),
+		time.Unix(authResp.RefreshExpiresAt, 0),
+	); err != nil {
+		return nil, utils.InternalError("save refresh token failed: " + err.Error())
+	}
+
+	return authResp, nil
 }

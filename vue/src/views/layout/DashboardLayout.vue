@@ -1,7 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { clearAuth, getUser } from '../../services/auth'
+import { postJson } from '../../services/api'
+import { clearAuth, getRefreshToken, getUser } from '../../services/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,9 +43,18 @@ function toggleGroup(groupKey) {
   expandedGroups.value[groupKey] = !expandedGroups.value[groupKey]
 }
 
-function logout() {
-  clearAuth()
-  router.push({ name: 'login' })
+async function logout() {
+  try {
+    const refreshToken = getRefreshToken()
+    if (refreshToken) {
+      await postJson('/api/v1/auth/logout', { refresh_token: refreshToken })
+    }
+  } catch {
+    // ignore logout errors
+  } finally {
+    clearAuth()
+    router.push({ name: 'login' })
+  }
 }
 </script>
 

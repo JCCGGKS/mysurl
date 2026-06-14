@@ -14,6 +14,10 @@ type RegisterRequest {
 	ConfirmPassword string `json:"confirm_password"`
 }
 
+type RegisterResponse {
+	Registered bool `json:"registered"`
+}
+
 type LoginRequest {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -25,9 +29,26 @@ type AuthUser {
 }
 
 type AuthResponse {
-	Token     string   `json:"token"`
-	ExpiresAt int64    `json:"expires_at"`
-	User      AuthUser `json:"user"`
+	AccessToken      string   `json:"access_token"`
+	AccessExpiresAt  int64    `json:"access_expires_at"`
+	RefreshToken     string   `json:"refresh_token"`
+	RefreshExpiresAt int64    `json:"refresh_expires_at"`
+	User             AuthUser `json:"user"`
+}
+
+type RefreshRequest {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshResponse {
+	AccessToken      string `json:"access_token"`
+	AccessExpiresAt  int64  `json:"access_expires_at"`
+	RefreshToken     string `json:"refresh_token"`
+	RefreshExpiresAt int64  `json:"refresh_expires_at"`
+}
+
+type LogoutRequest {
+	RefreshToken string `json:"refresh_token"`
 }
 
 type CreateLinkResponse {
@@ -106,10 +127,16 @@ type RedirectRequest {
 
 service mysurl1-api {
 	@handler RegisterHandler
-	post /api/v1/auth/register (RegisterRequest) returns (AuthResponse)
+	post /api/v1/auth/register (RegisterRequest) returns (RegisterResponse)
 
 	@handler LoginHandler
 	post /api/v1/auth/login (LoginRequest) returns (AuthResponse)
+
+	@handler RefreshAuthHandler
+	post /api/v1/auth/refresh (RefreshRequest) returns (RefreshResponse)
+
+	@handler LogoutHandler
+	post /api/v1/auth/logout (LogoutRequest)
 
 	@handler CreateLinkHandler
 	post /api/v1/links (CreateLinkRequest) returns (CreateLinkResponse)

@@ -1,10 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { postJson } from '../../services/api'
-import { handleUnauthorized } from '../../router'
-
-const router = useRouter()
 const createViewStorageKey = 'mysurl1:create-view-state'
 
 const mode = ref('single')
@@ -132,10 +128,6 @@ async function submitSingle() {
     )
     persistCreateViewState()
   } catch (error) {
-    if (error.status === 401) {
-      handleUnauthorized(router)
-      return
-    }
     errorMessage.value = error.message || '请求失败，请稍后重试'
     result.value = null
   } finally {
@@ -162,10 +154,6 @@ async function submitBatch() {
     )
     persistCreateViewState()
   } catch (error) {
-    if (error.status === 401) {
-      handleUnauthorized(router)
-      return
-    }
     errorMessage.value = error.message || '批量创建失败，请稍后重试'
     batchResult.value = null
   } finally {

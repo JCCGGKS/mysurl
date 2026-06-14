@@ -25,7 +25,8 @@ Redis:
   DB: 0
 Auth:
   JWTSecret: change-me-in-production
-  ExpireSeconds: 86400
+  AccessExpireSeconds: 20
+  RefreshExpireSeconds: 604800
   PasswordPepper: ""
 Short:
   BaseURL: http://127.0.0.1:8888

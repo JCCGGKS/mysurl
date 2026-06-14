@@ -17,6 +17,10 @@ type RegisterRequest struct {
 	ConfirmPassword string `json:"confirm_password"`
 }
 
+type RegisterResponse struct {
+	Registered bool `json:"registered"`
+}
+
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -28,9 +32,26 @@ type AuthUser struct {
 }
 
 type AuthResponse struct {
-	Token     string   `json:"token"`
-	ExpiresAt int64    `json:"expires_at"`
-	User      AuthUser `json:"user"`
+	AccessToken      string   `json:"access_token"`
+	AccessExpiresAt  int64    `json:"access_expires_at"`
+	RefreshToken     string   `json:"refresh_token"`
+	RefreshExpiresAt int64    `json:"refresh_expires_at"`
+	User             AuthUser `json:"user"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshResponse struct {
+	AccessToken      string `json:"access_token"`
+	AccessExpiresAt  int64  `json:"access_expires_at"`
+	RefreshToken     string `json:"refresh_token"`
+	RefreshExpiresAt int64  `json:"refresh_expires_at"`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 type CreateLinkResponse struct {

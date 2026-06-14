@@ -33,6 +33,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/api/v1/auth/register",
 				Handler: RegisterHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/v1/auth/refresh",
+				Handler: RefreshAuthHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/v1/auth/logout",
+				Handler: LogoutHandler(serverCtx),
+			},
 		},
 	)
 	server.AddRoutes(rest.WithMiddlewares(

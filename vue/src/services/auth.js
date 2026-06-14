@@ -1,8 +1,13 @@
-const TOKEN_KEY = 'mysurl1_token'
+const ACCESS_TOKEN_KEY = 'mysurl1_access_token'
+const REFRESH_TOKEN_KEY = 'mysurl1_refresh_token'
 const USER_KEY = 'mysurl1_user'
 
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY) || ''
+export function getAccessToken() {
+  return localStorage.getItem(ACCESS_TOKEN_KEY) || ''
+}
+
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_KEY) || ''
 }
 
 export function getUser() {
@@ -19,12 +24,18 @@ export function getUser() {
   }
 }
 
-export function setAuth({ token, user }) {
-  localStorage.setItem(TOKEN_KEY, token)
+export function hasUser() {
+  return Boolean(getUser())
+}
+
+export function setAuth({ accessToken, refreshToken, user }) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
 export function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
 }

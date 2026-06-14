@@ -36,6 +36,26 @@ LIMIT 1
 	return &user, nil
 }
 
+func (d *UserDAO) FindByID(ctx context.Context, id uint64) (*model.User, error) {
+	var user model.User
+	query := `
+SELECT
+	id,
+	username,
+	password_hash
+FROM users
+WHERE id = ?
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+	if err := d.conn.QueryRowPartialCtx(ctx, &user, query, id); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (d *UserDAO) Insert(ctx context.Context, username, passwordHash string) (uint64, error) {
 	query := `
 INSERT INTO users (

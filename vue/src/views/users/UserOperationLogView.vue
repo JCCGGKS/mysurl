@@ -1,10 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { getJson } from '../../services/api'
-import { handleUnauthorized } from '../../router'
-
-const router = useRouter()
 
 const loading = ref(false)
 const errorMessage = ref('')
@@ -86,10 +82,6 @@ async function loadLogs() {
     hasMore.value = Boolean(data.has_more)
     nextCursor.value = Number(data.next_last_id || 0)
   } catch (error) {
-    if (error.status === 401) {
-      handleUnauthorized(router)
-      return
-    }
     errorMessage.value = error.message || '加载操作日志失败，请稍后重试'
     logs.value = []
     total.value = 0
