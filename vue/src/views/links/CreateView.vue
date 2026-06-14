@@ -5,6 +5,7 @@ import { postJson } from '../../services/api'
 import { handleUnauthorized } from '../../router'
 
 const router = useRouter()
+const createViewStorageKey = 'mysurl1:create-view-state'
 
 const mode = ref('single')
 const longUrl = ref('')
@@ -51,6 +52,8 @@ const batchSuccessItems = computed(() =>
     : [],
 )
 
+restoreCreateViewState()
+
 function switchMode(nextMode) {
   if (loading.value || mode.value === nextMode) return
   mode.value = nextMode
@@ -58,6 +61,7 @@ function switchMode(nextMode) {
   copied.value = false
   copiedBatchIndex.value = -1
   copiedAllBatch.value = false
+  persistCreateViewState()
 }
 
 function validateUrl(value) {
@@ -126,6 +130,7 @@ async function submitSingle() {
       },
       { auth: true },
     )
+    persistCreateViewState()
   } catch (error) {
     if (error.status === 401) {
       handleUnauthorized(router)
@@ -155,6 +160,7 @@ async function submitBatch() {
       },
       { auth: true },
     )
+    persistCreateViewState()
   } catch (error) {
     if (error.status === 401) {
       handleUnauthorized(router)
@@ -248,6 +254,37 @@ async function writeToClipboard(value) {
 
   if (!copiedWithExecCommand) {
     throw new Error('copy failed')
+  }
+}
+
+function persistCreateViewState() {
+  if (typeof window === 'undefined') return
+
+  window.sessionStorage.setItem(
+    createViewStorageKey,
+    JSON.stringify({
+      mode: mode.value,
+      result: result.value,
+      batchResult: batchResult.value,
+    }),
+  )
+}
+
+function restoreCreateViewState() {
+  if (typeof window === 'undefined') return
+
+  const raw = window.sessionStorage.getItem(createViewStorageKey)
+  if (!raw) return
+
+  try {
+    const saved = JSON.parse(raw)
+    if (saved.mode === 'single' || saved.mode === 'batch') {
+      mode.value = saved.mode
+    }
+    result.value = saved.result ?? null
+    batchResult.value = saved.batchResult ?? null
+  } catch {
+    window.sessionStorage.removeItem(createViewStorageKey)
   }
 }
 </script>
