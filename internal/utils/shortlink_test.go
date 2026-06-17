@@ -1,6 +1,26 @@
 package utils
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestShuffleBase62Alphabet(t *testing.T) {
+	got := shuffleBase62Alphabet(42)
+	if got != "juZ0ILhQRpNVa7PE9WrGzge3KBtXsqmD6fYx1o8OdMHFTwSv5ibCykUJl2cA4n" {
+		t.Fatalf("shuffleBase62Alphabet(42) = %q", got)
+	}
+
+	if len(got) != len(base62AlphabetSource) {
+		t.Fatalf("shuffleBase62Alphabet(42) length = %d, want %d", len(got), len(base62AlphabetSource))
+	}
+
+	for _, ch := range base62AlphabetSource {
+		if strings.Count(got, string(ch)) != 1 {
+			t.Fatalf("shuffleBase62Alphabet(42) invalid count for %q", ch)
+		}
+	}
+}
 
 func TestEncodeBase62(t *testing.T) {
 	tests := []struct {
@@ -8,11 +28,11 @@ func TestEncodeBase62(t *testing.T) {
 		input uint64
 		want  string
 	}{
-		{name: "zero", input: 0, want: "0"},
-		{name: "one", input: 1, want: "1"},
-		{name: "sixty one", input: 61, want: "Z"},
-		{name: "sixty two", input: 62, want: "10"},
-		{name: "three eight four three", input: 3843, want: "ZZ"},
+		{name: "zero", input: 0, want: "j"},
+		{name: "one", input: 1, want: "u"},
+		{name: "sixty one", input: 61, want: "n"},
+		{name: "sixty two", input: 62, want: "uj"},
+		{name: "three eight four three", input: 3843, want: "nn"},
 	}
 
 	for _, tt := range tests {
@@ -31,8 +51,8 @@ func TestDecodeBase62(t *testing.T) {
 		want    uint64
 		wantErr bool
 	}{
-		{name: "zero", input: "0", want: 0},
-		{name: "mixed", input: "1zZ", want: 1*62*62 + 35*62 + 61},
+		{name: "zero", input: "j", want: 0},
+		{name: "mixed", input: "uxn", want: 1*62*62 + 35*62 + 61},
 		{name: "invalid", input: "!", wantErr: true},
 	}
 

@@ -5,11 +5,24 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strings"
 )
 
-const base62Alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const base62AlphabetSource = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+var base62Alphabet = shuffleBase62Alphabet(42)
+
+func shuffleBase62Alphabet(seed int64) string {
+	runes := []rune(base62AlphabetSource)
+	r := rand.New(rand.NewSource(seed))
+	r.Shuffle(len(runes), func(i, j int) {
+		runes[i], runes[j] = runes[j], runes[i]
+	})
+
+	return string(runes)
+}
 
 func ValidateLongURL(raw string) error {
 	if strings.TrimSpace(raw) == "" {
