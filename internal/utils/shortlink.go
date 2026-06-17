@@ -12,7 +12,7 @@ import (
 
 const base62AlphabetSource = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-var base62Alphabet = shuffleBase62Alphabet(42)
+var base62Alphabet = shuffleBase62Alphabet(int64(len(base62AlphabetSource)))
 
 func shuffleBase62Alphabet(seed int64) string {
 	runes := []rune(base62AlphabetSource)
