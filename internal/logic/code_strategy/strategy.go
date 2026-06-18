@@ -19,6 +19,11 @@ type Generator interface {
 	NextCode(ctx context.Context) (string, error)
 }
 
+type BatchGenerator interface {
+	Generator
+	NextCodes(ctx context.Context, n int) ([]string, error)
+}
+
 type CodeManager struct {
 	mu         sync.RWMutex
 	generators map[string]Generator
@@ -74,6 +79,41 @@ func (m *CodeManager) NextCode(ctx context.Context, provider string) (string, er
 	}
 
 	return generator.NextCode(ctx)
+}
+
+func (m *CodeManager) NextCodes(ctx context.Context, provider string, n int) ([]string, error) {
+	if m == nil {
+		return nil, fmt.Errorf("code manager is nil")
+	}
+	if n <= 0 {
+		return nil, fmt.Errorf("batch size must be greater than zero")
+	}
+	if provider == "" {
+		provider = ProviderMySQLAutoIncrement
+	}
+	if provider == ProviderMySQLAutoIncrement {
+		return nil, fmt.Errorf("provider %s does not support pre-generated short codes", ProviderMySQLAutoIncrement)
+	}
+
+	generator, err := m.Get(provider)
+	if err != nil {
+		return nil, err
+	}
+
+	if batchGenerator, ok := generator.(BatchGenerator); ok {
+		return batchGenerator.NextCodes(ctx, n)
+	}
+
+	codes := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		code, err := generator.NextCode(ctx)
+		if err != nil {
+			return nil, err
+		}
+		codes = append(codes, code)
+	}
+
+	return codes, nil
 }
 
 func BuildCodeFromID(id uint64) string {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	codestrategy "mysurl1/internal/logic/code_strategy"
+	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -149,6 +150,12 @@ func (l *CreateLinkLogic) fillCreateCaches(userID uint64, normalizedURL, shortCo
 	}
 	if err := l.svcCtx.ShortLinkCache.ShortCodeBloomAdd(l.ctx, shortCode); err != nil {
 		l.Errorf("add short code bloom failed: %v", err)
+	}
+}
+
+func (l *CreateLinkLogic) fillCreateCachesBatch(userID uint64, records []model.ShortLink) {
+	if err := l.svcCtx.ShortLinkCache.FillCreateCachesBatch(l.ctx, userID, records); err != nil {
+		l.Errorf("fill create caches batch failed: %v", err)
 	}
 }
 

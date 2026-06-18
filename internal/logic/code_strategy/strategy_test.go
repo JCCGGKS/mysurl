@@ -24,6 +24,19 @@ func (g *stubGenerator) NextCode(context.Context) (string, error) {
 	return g.code, nil
 }
 
+type stubBatchGenerator struct {
+	stubGenerator
+	codes []string
+}
+
+func (g *stubBatchGenerator) NextCodes(context.Context, int) ([]string, error) {
+	if g.err != nil {
+		return nil, g.err
+	}
+
+	return g.codes, nil
+}
+
 func TestCodeManagerRegisterOverwrite(t *testing.T) {
 	manager := NewCodeManager()
 	manager.Register(&stubGenerator{provider: ProviderRedisIncr, code: "old"})
@@ -65,8 +78,37 @@ func TestCodeManagerRejectsMySQLAutoIncrementNextCode(t *testing.T) {
 	}
 }
 
+func TestCodeManagerNextCodesUsesBatchGenerator(t *testing.T) {
+	manager := NewCodeManager()
+	manager.Register(&stubBatchGenerator{
+		stubGenerator: stubGenerator{provider: ProviderRedisIncr},
+		codes:         []string{"a", "b", "c"},
+	})
+
+	codes, err := manager.NextCodes(context.Background(), ProviderRedisIncr, 3)
+	if err != nil {
+		t.Fatalf("NextCodes() unexpected error: %v", err)
+	}
+	if len(codes) != 3 || codes[0] != "a" || codes[2] != "c" {
+		t.Fatalf("NextCodes() = %v, want [a b c]", codes)
+	}
+}
+
+func TestCodeManagerNextCodesFallsBackToSingleCalls(t *testing.T) {
+	manager := NewCodeManager()
+	manager.Register(&stubGenerator{provider: ProviderSnowflake, code: "x"})
+
+	codes, err := manager.NextCodes(context.Background(), ProviderSnowflake, 2)
+	if err != nil {
+		t.Fatalf("NextCodes() unexpected error: %v", err)
+	}
+	if len(codes) != 2 || codes[0] != "x" || codes[1] != "x" {
+		t.Fatalf("NextCodes() = %v, want [x x]", codes)
+	}
+}
+
 func TestBuildCodeFromID(t *testing.T) {
-	if code := BuildCodeFromID(62); code != "10" {
-		t.Fatalf("BuildCodeFromID() = %q, want %q", code, "10")
+	if code := BuildCodeFromID(62); code != "RO" {
+		t.Fatalf("BuildCodeFromID() = %q, want %q", code, "RO")
 	}
 }

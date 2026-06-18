@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mysurl1/internal/model"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -88,6 +89,36 @@ func (c *ShortLinkCache) SetLongToShort(ctx context.Context, userID uint64, norm
 	return c.redis.Set(ctx, longToShortCacheKey(userID, normalizedURL), shortCode, 0).Err()
 }
 
+func (c *ShortLinkCache) GetLongToShortBatch(ctx context.Context, userID uint64, normalizedURLs []string) (map[string]string, error) {
+	if c == nil || c.redis == nil {
+		return map[string]string{}, nil
+	}
+	if len(normalizedURLs) == 0 {
+		return map[string]string{}, nil
+	}
+
+	keys := make([]string, 0, len(normalizedURLs))
+	for _, normalizedURL := range normalizedURLs {
+		keys = append(keys, longToShortCacheKey(userID, normalizedURL))
+	}
+
+	values, err := c.redis.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(map[string]string, len(normalizedURLs))
+	for i, value := range values {
+		shortCode, ok := value.(string)
+		if !ok || shortCode == "" {
+			continue
+		}
+		results[normalizedURLs[i]] = shortCode
+	}
+
+	return results, nil
+}
+
 func (c *ShortLinkCache) ShortCodeBloomExists(ctx context.Context, shortCode string) (bool, error) {
 	if c == nil || c.redis == nil {
 		return true, nil
@@ -122,6 +153,38 @@ func (c *ShortLinkCache) ShortCodeBloomAdd(ctx context.Context, shortCode string
 	}
 	if c.handleBloomUnavailable(err) {
 		return nil
+	}
+
+	return err
+}
+
+func (c *ShortLinkCache) FillCreateCachesBatch(ctx context.Context, userID uint64, records []model.ShortLink) error {
+	if c == nil || c.redis == nil || len(records) == 0 {
+		return nil
+	}
+
+	pipe := c.redis.Pipeline()
+	for _, record := range records {
+		pipe.Set(ctx, longToShortCacheKey(userID, record.OriginalURL), record.ShortCode, 0)
+	}
+
+	if !c.bloomDisabled.Load() {
+		for _, record := range records {
+			pipe.Do(ctx, "BF.ADD", bloomShortCodeKey, record.ShortCode)
+		}
+	}
+
+	_, err := pipe.Exec(ctx)
+	if err == nil {
+		return nil
+	}
+	if c.handleBloomUnavailable(err) {
+		pipe = c.redis.Pipeline()
+		for _, record := range records {
+			pipe.Set(ctx, longToShortCacheKey(userID, record.OriginalURL), record.ShortCode, 0)
+		}
+		_, fallbackErr := pipe.Exec(ctx)
+		return fallbackErr
 	}
 
 	return err

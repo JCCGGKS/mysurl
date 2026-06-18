@@ -150,10 +150,14 @@ func (l *BatchCreateLinksLogic) loadExistingBatchResults(userID uint64, normaliz
 		return results, nil
 	}
 
+	cachedShortCodes, err := l.svcCtx.ShortLinkCache.GetLongToShortBatch(l.ctx, userID, normalizedURLs)
+	if err != nil {
+		return nil, err
+	}
+
 	missedURLs := make([]string, 0, len(normalizedURLs))
 	for _, normalizedURL := range normalizedURLs {
-		shortCode, cacheErr := l.svcCtx.ShortLinkCache.GetLongToShort(l.ctx, userID, normalizedURL)
-		if cacheErr == nil && shortCode != "" {
+		if shortCode := cachedShortCodes[normalizedURL]; shortCode != "" {
 			results[normalizedURL] = &createLinkResult{
 				ShortCode:   shortCode,
 				OriginalURL: normalizedURL,
@@ -171,8 +175,8 @@ func (l *BatchCreateLinksLogic) loadExistingBatchResults(userID uint64, normaliz
 	if err != nil {
 		return nil, err
 	}
+	l.newCreateLinkLogic().fillCreateCachesBatch(userID, records)
 	for _, record := range records {
-		l.newCreateLinkLogic().fillCreateCaches(userID, record.OriginalURL, record.ShortCode)
 		results[record.OriginalURL] = &createLinkResult{
 			ShortCode:   record.ShortCode,
 			OriginalURL: record.OriginalURL,
@@ -194,26 +198,22 @@ func (l *BatchCreateLinksLogic) batchCreateNewLinks(userID uint64, records []mod
 		if err != nil {
 			return nil, err
 		}
-		for _, record := range created {
-			createLogic.fillCreateCaches(userID, record.OriginalURL, record.ShortCode)
-		}
+		createLogic.fillCreateCachesBatch(userID, created)
 		return created, nil
 	}
 
+	shortCodes, err := l.svcCtx.CodeManager.NextCodes(l.ctx, createLogic.shortCodeProvider(), len(records))
+	if err != nil {
+		return nil, err
+	}
 	for i := range records {
-		shortCode, err := l.svcCtx.CodeManager.NextCode(l.ctx, createLogic.shortCodeProvider())
-		if err != nil {
-			return nil, err
-		}
-		records[i].ShortCode = shortCode
+		records[i].ShortCode = shortCodes[i]
 	}
 
 	if err := l.svcCtx.ShortLinkDAO.BatchInsert(l.ctx, &userID, records); err != nil {
 		return nil, err
 	}
-	for _, record := range records {
-		createLogic.fillCreateCaches(userID, record.OriginalURL, record.ShortCode)
-	}
+	createLogic.fillCreateCachesBatch(userID, records)
 
 	return records, nil
 }
