@@ -4,6 +4,24 @@
 
 如果你想找一个适合拆解的中小型 Go Web 项目，这个仓库比较合适。
 
+## 演示图片
+
+### 创建短链
+
+![创建短链](picture/mysurl_创建短链.png)
+
+### 短链列表
+
+![短链列表](picture/mysurl_短链列表.png)
+
+### 用户操作日志
+
+![用户操作日志](picture/mysurl_用户操作日志.png)
+
+### 接口调试
+
+![Apifox 生成短链](picture/apifox_生成短链.png)
+
 ## 它解决了什么问题
 
 `mysurl1` 当前主要提供这些能力：
