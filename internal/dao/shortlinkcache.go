@@ -211,33 +211,46 @@ func (c *ShortLinkCache) ScanVisitCountKeys(ctx context.Context, cursor uint64, 
 	return keys, nextCursor, nil
 }
 
-func (c *ShortLinkCache) GetVisitCountDelta(ctx context.Context, key string) (uint64, error) {
+func (c *ShortLinkCache) GetVisitCountDeltas(ctx context.Context, keys []string) (map[string]uint64, error) {
 	if c == nil || c.redis == nil {
-		return 0, nil
+		return map[string]uint64{}, nil
+	}
+	if len(keys) == 0 {
+		return map[string]uint64{}, nil
 	}
 
-	raw, err := c.redis.Get(ctx, key).Result()
-	if errors.Is(err, goredis.Nil) {
-		return 0, nil
-	}
+	values, err := c.redis.MGet(ctx, keys...).Result()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	value, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil {
-		return 0, err
+	deltas := make(map[string]uint64, len(keys))
+	for i, value := range values {
+		raw, ok := value.(string)
+		if !ok || raw == "" {
+			continue
+		}
+
+		delta, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		deltas[keys[i]] = delta
 	}
 
-	return value, nil
+	return deltas, nil
 }
 
-func (c *ShortLinkCache) DeleteVisitCountKey(ctx context.Context, key string) error {
+func (c *ShortLinkCache) DeleteVisitCountKeys(ctx context.Context, keys []string) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
+	if len(keys) == 0 {
+		return nil
+	}
 
-	return c.redis.Del(ctx, key).Err()
+	return c.redis.Del(ctx, keys...).Err()
 }
 
 func shortToLongCacheKey(shortCode string) string {

@@ -32,7 +32,7 @@ func main() {
 		// This branch is the config-controlled entry point. Fully preventing the
 		// sampler from starting still requires moving the start logic out of the
 		// go-zero package init path.
-		stat.Stat()
+		// stat.Stat()
 	}
 
 	server := rest.MustNewServer(c.RestConf)
