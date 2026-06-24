@@ -37,3 +37,5 @@ zmark
 RedisBloom
 sync
 Golang_resource
+tal
+**/*.log

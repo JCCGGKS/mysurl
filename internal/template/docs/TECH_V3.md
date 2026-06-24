@@ -17,15 +17,19 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 - 跳转成功后不再同步更新 MySQL
 - 改为 Redis `INCR shortlink:visit:{id}`
 - 后台任务批量回刷 MySQL
-- 回刷使用增量更新：`visit_count = visit_count + ?`
+- 回刷使用增量更新
 - Redis 中只保存增量，不保存最终总值
-- 回刷流程先 `GET` 增量，再更新 MySQL，成功后删除对应 key(有删除失败的风险)
+- 回刷流程完整扫描 `shortlink:visit:*`
+- 每批使用 Redis `MGET` 批量读取增量
+- MySQL 使用单条批量 `UPDATE ... CASE id WHEN ... THEN ... END`
+- 回刷成功后批量 `DEL` 对应 key
 - 回刷失败时保留增量，等待下次重试
 
 收益：
 
 - 跳转主链路去掉同步写库
 - 热点短链不再频繁更新同一行
+- Redis 和 MySQL 的往返次数进一步下降
 
 ### 2.2 跳转链路 `singleflight`
 
@@ -93,32 +97,47 @@ V3 在 V2 缓存链路基础上，继续降低高并发场景下的数据库压�
 回刷任务建议职责：
 
 - 周期性扫描 `shortlink:visit:*`
-- 读取每个 key 的增量值
-- 批量执行 `visit_count = visit_count + ?`
-- 成功后删除对应 key
+- 读取每批 key 的增量值
+- 批量更新 `visit_count`
+- 成功后批量删除对应 key
 - 失败则保留 key，等待下次重试
 
 
 建议执行方式：
 
 1. 按固定周期执行，例如每 `5s`
-2. 使用 `SCAN` 扫描 `shortlink:visit:*`
-3. 单次限制处理数量，例如 `100` 个 key
-4. 对每个 key 先 `GET` 增量并解析出 `id`
-5. 在一个 MySQL 事务内逐条执行 `visit_count = visit_count + ?`
-6. 事务提交成功后，再删除本批次对应的 Redis key
+2. 使用 `SCAN` 从游标 `0` 开始，循环扫描直到游标回到 `0`
+3. `Batch` 作为每次 `SCAN` 的 `count`，例如 `100`
+4. 对每批扫描结果执行一次 Redis `MGET`
+5. 解析 `shortlink:visit:{id}` 中的 `id`
+6. 生成单条批量 SQL：
+
+```sql
+UPDATE short_links
+SET visit_count = visit_count + CASE id
+  WHEN ? THEN ?
+  WHEN ? THEN ?
+  ...
+  ELSE 0
+END
+WHERE id IN (?, ?, ...)
+```
+
+7. 在一个 MySQL 事务内执行该批量更新
+8. 事务提交成功后，再批量 `DEL` 本轮回刷对应的 Redis key
 
 说明：
 
 - 第一版不使用 `KEYS`
 - 第一版只启一个回刷 worker
-- 第一版先使用事务内多条 `UPDATE`
 - 第一版主链路只执行 Redis `INCR`，不再同步更新 MySQL
+- 当前实现优先“不丢数据”，因此仍采用“先写 MySQL，再删 Redis”
 
 ## 5. 边界
 
 - `visit_count` 从实时一致变为最终一致
-- 简单版回刷在极端故障场景下可能存在少量重复累计风险
+- 当前方案在极端故障场景下可能存在少量重复累计风险
+- 当前方案优先“不丢数据”，不保证精确一次回写
 - `singleflight` 只能解决单实例并发
 - `singleflight` key 只用于并发控制，不承担缓存语义
 - 多实例场景下，创建链路若要求更强控制，后续再补 Redis 分布式锁
