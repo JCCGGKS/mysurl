@@ -5,7 +5,6 @@ CREATE TABLE `short_links` (
   `short_code` varchar(11) DEFAULT NULL COMMENT '短码',
   `original_url` varchar(250) NOT NULL COMMENT '规范化后的长链',
   `url_hash` char(64) NOT NULL COMMENT '规范化长链的哈希值, 用于辅助查重',
-  `visit_count` bigint unsigned NOT NULL DEFAULT 0 COMMENT '访问次数',
   `expires_at` datetime DEFAULT NULL COMMENT '过期时间, 预留后续扩展',
   `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态: 不使用0; 1=active, 2=disabled',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

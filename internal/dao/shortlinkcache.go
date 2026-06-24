@@ -190,12 +190,23 @@ func (c *ShortLinkCache) FillCreateCachesBatch(ctx context.Context, userID uint6
 	return err
 }
 
-func (c *ShortLinkCache) IncrVisitCount(ctx context.Context, id uint64) error {
+func (c *ShortLinkCache) IncrVisitCount(ctx context.Context, id, baseCount uint64) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
 
-	return c.redis.Incr(ctx, visitCountKey(id)).Err()
+	const script = `
+local key = KEYS[1]
+local base = tonumber(ARGV[1])
+if redis.call("EXISTS", key) == 1 then
+	return redis.call("INCR", key)
+end
+local next = base + 1
+redis.call("SET", key, next)
+return next
+`
+
+	return c.redis.Eval(ctx, script, []string{visitCountKey(id)}, baseCount).Err()
 }
 
 func (c *ShortLinkCache) ScanVisitCountKeys(ctx context.Context, cursor uint64, count int64) ([]string, uint64, error) {
@@ -211,7 +222,7 @@ func (c *ShortLinkCache) ScanVisitCountKeys(ctx context.Context, cursor uint64, 
 	return keys, nextCursor, nil
 }
 
-func (c *ShortLinkCache) GetVisitCountDeltas(ctx context.Context, keys []string) (map[string]uint64, error) {
+func (c *ShortLinkCache) GetVisitCounts(ctx context.Context, keys []string) (map[string]uint64, error) {
 	if c == nil || c.redis == nil {
 		return map[string]uint64{}, nil
 	}
@@ -224,33 +235,78 @@ func (c *ShortLinkCache) GetVisitCountDeltas(ctx context.Context, keys []string)
 		return nil, err
 	}
 
-	deltas := make(map[string]uint64, len(keys))
+	counts := make(map[string]uint64, len(keys))
 	for i, value := range values {
 		raw, ok := value.(string)
 		if !ok || raw == "" {
 			continue
 		}
 
-		delta, err := strconv.ParseUint(raw, 10, 64)
+		count, err := strconv.ParseUint(raw, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 
-		deltas[keys[i]] = delta
+		counts[keys[i]] = count
 	}
 
-	return deltas, nil
+	return counts, nil
 }
 
-func (c *ShortLinkCache) DeleteVisitCountKeys(ctx context.Context, keys []string) error {
+func (c *ShortLinkCache) GetVisitCount(ctx context.Context, id uint64) (uint64, bool, error) {
 	if c == nil || c.redis == nil {
-		return nil
-	}
-	if len(keys) == 0 {
-		return nil
+		return 0, false, nil
 	}
 
-	return c.redis.Del(ctx, keys...).Err()
+	raw, err := c.redis.Get(ctx, visitCountKey(id)).Result()
+	if errors.Is(err, goredis.Nil) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+
+	count, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		return 0, false, err
+	}
+
+	return count, true, nil
+}
+
+func (c *ShortLinkCache) GetVisitCountsByIDs(ctx context.Context, ids []uint64) (map[uint64]uint64, error) {
+	if c == nil || c.redis == nil {
+		return map[uint64]uint64{}, nil
+	}
+	if len(ids) == 0 {
+		return map[uint64]uint64{}, nil
+	}
+
+	keys := make([]string, 0, len(ids))
+	for _, id := range ids {
+		keys = append(keys, visitCountKey(id))
+	}
+
+	values, err := c.redis.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(map[uint64]uint64, len(ids))
+	for i, value := range values {
+		raw, ok := value.(string)
+		if !ok || raw == "" {
+			continue
+		}
+
+		count, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		results[ids[i]] = count
+	}
+
+	return results, nil
 }
 
 func shortToLongCacheKey(shortCode string) string {

@@ -28,6 +28,7 @@ type ServiceContext struct {
 	Redis               *goredis.Client
 	ShortLinkCache      *dao.ShortLinkCache
 	ShortLinkDAO        *dao.ShortLinkDAO
+	VisitStatDAO        *dao.VisitStatDAO
 	UserDAO             *dao.UserDAO
 	UserRefreshTokenDAO *dao.UserRefreshTokenDAO
 	UserOperationLogDAO *dao.UserOperationLogDAO
@@ -45,11 +46,12 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		}
 		serviceContext.ShortLinkCache = dao.NewShortLinkCache(serviceContext.Redis)
 		serviceContext.ShortLinkDAO = dao.NewShortLinkDAO(serviceContext.DB)
+		serviceContext.VisitStatDAO = dao.NewVisitStatDAO(serviceContext.DB)
 		serviceContext.UserDAO = dao.NewUserDAO(serviceContext.DB)
 		serviceContext.UserRefreshTokenDAO = dao.NewUserRefreshTokenDAO(serviceContext.DB)
 		serviceContext.UserOperationLogDAO = dao.NewUserOperationLogDAO(serviceContext.DB)
 		serviceContext.CodeManager = mustNewCodeManager(c.Short, serviceContext.ShortLinkDAO)
-		utils.StartVisitFlushWorker(serviceContext.DB, serviceContext.ShortLinkCache, c.VisitFlush)
+		utils.StartVisitFlushWorker(serviceContext.DB, serviceContext.ShortLinkCache, serviceContext.VisitStatDAO, c.VisitFlush)
 	})
 
 	return serviceContext

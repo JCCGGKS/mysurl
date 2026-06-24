@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"mysurl1/internal/model"
 	types "mysurl1/internal/schema"
 	"mysurl1/internal/svc"
 	"mysurl1/internal/utils"
@@ -72,6 +73,12 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		records = records[:limit]
 	}
 
+	visitCounts, err := l.loadVisitCounts(records)
+	if err != nil {
+		l.Errorf("load visit counts failed: %v", err)
+		return nil, utils.InternalError("load visit counts failed: " + err.Error())
+	}
+
 	items := make([]types.UserLinkItem, 0, len(records))
 	var nextLastID uint64
 	for _, record := range records {
@@ -80,7 +87,7 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 			ShortCode:   record.ShortCode,
 			ShortURL:    utils.BuildShortURL(l.svcCtx.Config.Short.BaseURL, record.ShortCode),
 			OriginalURL: record.OriginalURL,
-			VisitCount:  record.VisitCount,
+			VisitCount:  visitCounts[record.ID],
 			CreatedAt:   record.CreatedAt.Unix(),
 		})
 		nextLastID = record.ID
@@ -93,4 +100,34 @@ func (l *ListUserLinksLogic) ListUserLinks(req *types.ListUserLinksRequest) (*ty
 		HasMore:    hasMore,
 		NextLastID: nextLastID,
 	}, nil
+}
+
+func (l *ListUserLinksLogic) loadVisitCounts(records []model.ShortLink) (map[uint64]uint64, error) {
+	results := make(map[uint64]uint64, len(records))
+	if len(records) == 0 {
+		return results, nil
+	}
+
+	ids := make([]uint64, 0, len(records))
+	for _, record := range records {
+		ids = append(ids, record.ID)
+	}
+
+	dbCounts, err := l.svcCtx.VisitStatDAO.GetVisitCountsByIDs(l.ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for id, count := range dbCounts {
+		results[id] = count
+	}
+
+	cacheCounts, err := l.svcCtx.ShortLinkCache.GetVisitCountsByIDs(l.ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for id, count := range cacheCounts {
+		results[id] = count
+	}
+
+	return results, nil
 }

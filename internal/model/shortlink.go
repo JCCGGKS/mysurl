@@ -10,7 +10,6 @@ type ShortLink struct {
 	ShortCode   string     `db:"short_code"`
 	OriginalURL string     `db:"original_url"`
 	URLHash     string     `db:"url_hash"`
-	VisitCount  uint64     `db:"visit_count"`
 	ExpiresAt   *time.Time `db:"expires_at"`
 	Status      uint8      `db:"status"`
 	CreatedAt   time.Time  `db:"created_at"`

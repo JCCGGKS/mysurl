@@ -140,7 +140,6 @@ SELECT
 	user_id,
 	short_code,
 	original_url,
-	visit_count,
 	created_at
 FROM short_links
 WHERE user_id = ?
@@ -380,18 +379,6 @@ INSERT INTO short_links (
 	return shortCode, nil
 }
 
-// IncrementVisitCount increases the visit counter for a short link record.
-func (d *ShortLinkDAO) IncrementVisitCount(ctx context.Context, id uint64) error {
-	_, err := d.conn.ExecCtx(ctx, "UPDATE short_links SET visit_count = visit_count + 1 WHERE id = ?", id)
-	return err
-}
-
-// AddVisitCount increases visit_count by the given delta.
-func (d *ShortLinkDAO) AddVisitCount(ctx context.Context, id, delta uint64) error {
-	_, err := d.conn.ExecCtx(ctx, "UPDATE short_links SET visit_count = visit_count + ? WHERE id = ?", delta, id)
-	return err
-}
-
 func buildUserLinkListQuery(countOnly bool, userID uint64, shortCode, originalURL string, lastID uint64) (string, []any) {
 	var builder strings.Builder
 	if countOnly {
@@ -402,7 +389,6 @@ func buildUserLinkListQuery(countOnly bool, userID uint64, shortCode, originalUR
 	user_id,
 	short_code,
 	original_url,
-	visit_count,
 	created_at
 `)
 	}
