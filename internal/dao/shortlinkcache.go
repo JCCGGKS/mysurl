@@ -190,23 +190,20 @@ func (c *ShortLinkCache) FillCreateCachesBatch(ctx context.Context, userID uint6
 	return err
 }
 
-func (c *ShortLinkCache) IncrVisitCount(ctx context.Context, id, baseCount uint64) error {
+func (c *ShortLinkCache) IncrVisitCount(ctx context.Context, id uint64) (uint64, error) {
+	if c == nil || c.redis == nil {
+		return 0, nil
+	}
+
+	return c.redis.Incr(ctx, visitCountKey(id)).Uint64()
+}
+
+func (c *ShortLinkCache) SetVisitCount(ctx context.Context, id, count uint64) error {
 	if c == nil || c.redis == nil {
 		return nil
 	}
 
-	const script = `
-local key = KEYS[1]
-local base = tonumber(ARGV[1])
-if redis.call("EXISTS", key) == 1 then
-	return redis.call("INCR", key)
-end
-local next = base + 1
-redis.call("SET", key, next)
-return next
-`
-
-	return c.redis.Eval(ctx, script, []string{visitCountKey(id)}, baseCount).Err()
+	return c.redis.Set(ctx, visitCountKey(id), count, 0).Err()
 }
 
 func (c *ShortLinkCache) ScanVisitCountKeys(ctx context.Context, cursor uint64, count int64) ([]string, uint64, error) {
@@ -251,27 +248,6 @@ func (c *ShortLinkCache) GetVisitCounts(ctx context.Context, keys []string) (map
 	}
 
 	return counts, nil
-}
-
-func (c *ShortLinkCache) GetVisitCount(ctx context.Context, id uint64) (uint64, bool, error) {
-	if c == nil || c.redis == nil {
-		return 0, false, nil
-	}
-
-	raw, err := c.redis.Get(ctx, visitCountKey(id)).Result()
-	if errors.Is(err, goredis.Nil) {
-		return 0, false, nil
-	}
-	if err != nil {
-		return 0, false, err
-	}
-
-	count, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil {
-		return 0, false, err
-	}
-
-	return count, true, nil
 }
 
 func (c *ShortLinkCache) GetVisitCountsByIDs(ctx context.Context, ids []uint64) (map[uint64]uint64, error) {

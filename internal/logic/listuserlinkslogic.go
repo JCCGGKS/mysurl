@@ -112,15 +112,6 @@ func (l *ListUserLinksLogic) loadVisitCounts(records []model.ShortLink) (map[uin
 	for _, record := range records {
 		ids = append(ids, record.ID)
 	}
-
-	dbCounts, err := l.svcCtx.VisitStatDAO.GetVisitCountsByIDs(l.ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	for id, count := range dbCounts {
-		results[id] = count
-	}
-
 	cacheCounts, err := l.svcCtx.ShortLinkCache.GetVisitCountsByIDs(l.ctx, ids)
 	if err != nil {
 		return nil, err

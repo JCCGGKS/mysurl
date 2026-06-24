@@ -108,24 +108,34 @@ type redirectLookupResult struct {
 }
 
 func (l *RedirectLogic) returnRedirectTarget(code string, id uint64, targetURL, source string) (string, error) {
-	baseCount := uint64(0)
-	if _, exists, err := l.svcCtx.ShortLinkCache.GetVisitCount(l.ctx, id); err != nil {
-		l.Errorf("get visit count cache failed: %v", err)
-	} else if !exists {
-		dbCount, dbErr := l.svcCtx.VisitStatDAO.GetVisitCount(l.ctx, id)
-		if dbErr != nil {
-			l.Errorf("load visit base count failed: %v", dbErr)
-		} else {
-			baseCount = dbCount
-		}
-	}
-
-	if err := l.svcCtx.ShortLinkCache.IncrVisitCount(l.ctx, id, baseCount); err != nil {
-		l.Errorf("incr visit count failed: %v", err)
-	}
+	l.recordVisitCount(id)
 
 	l.Infof("redirect hit %s, short_code=%s target=%s", source, code, targetURL)
 	return targetURL, nil
+}
+
+func (l *RedirectLogic) recordVisitCount(id uint64) {
+	currentCount, err := l.svcCtx.ShortLinkCache.IncrVisitCount(l.ctx, id)
+	if err != nil {
+		l.Errorf("incr visit count failed: %v", err)
+		return
+	}
+	if currentCount > 1 {
+		return
+	}
+
+	baseCount, err := l.svcCtx.VisitStatDAO.GetVisitCount(l.ctx, id)
+	if err != nil {
+		l.Errorf("load visit base count failed: %v", err)
+		baseCount = 0
+	}
+
+	if baseCount == 0 {
+		return
+	}
+	if err := l.svcCtx.ShortLinkCache.SetVisitCount(l.ctx, id, baseCount+1); err != nil {
+		l.Errorf("set visit count cache failed: %v", err)
+	}
 }
 
 func redirectSingleflightKey(code string) string {
