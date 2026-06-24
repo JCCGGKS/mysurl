@@ -25,7 +25,7 @@ Redis:
   DB: 0
 Auth:
   JWTSecret: change-me-in-production
-  AccessExpireSeconds: 20
+  AccessExpireSeconds: 60
   RefreshExpireSeconds: 604800
   PasswordPepper: ""
 Short:
