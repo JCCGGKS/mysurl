@@ -108,10 +108,16 @@ type redirectLookupResult struct {
 }
 
 func (l *RedirectLogic) returnRedirectTarget(code string, id uint64, targetURL, source string) (string, error) {
-	baseCount, err := l.svcCtx.VisitStatDAO.GetVisitCount(l.ctx, id)
-	if err != nil {
-		l.Errorf("load visit base count failed: %v", err)
-		baseCount = 0
+	baseCount := uint64(0)
+	if _, exists, err := l.svcCtx.ShortLinkCache.GetVisitCount(l.ctx, id); err != nil {
+		l.Errorf("get visit count cache failed: %v", err)
+	} else if !exists {
+		dbCount, dbErr := l.svcCtx.VisitStatDAO.GetVisitCount(l.ctx, id)
+		if dbErr != nil {
+			l.Errorf("load visit base count failed: %v", dbErr)
+		} else {
+			baseCount = dbCount
+		}
 	}
 
 	if err := l.svcCtx.ShortLinkCache.IncrVisitCount(l.ctx, id, baseCount); err != nil {
