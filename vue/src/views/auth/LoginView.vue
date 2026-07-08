@@ -59,7 +59,6 @@ async function submit() {
       <div class="auth-head">
         <p class="auth-chip">mysurl1 / Access</p>
         <h2>账号登录</h2>
-        <p class="auth-note">没有账号？<RouterLink class="auth-link" to="/register">去注册</RouterLink></p>
       </div>
 
       <p v-if="successMessage" class="feedback feedback-success">{{ successMessage }}</p>
@@ -91,6 +90,11 @@ async function submit() {
         <button class="submit-button auth-submit" type="submit" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
         </button>
+
+        <div class="auth-links">
+          <RouterLink class="auth-link" to="/register">注册</RouterLink>
+          <RouterLink class="auth-link" to="/change-password">忘记密码</RouterLink>
+        </div>
       </form>
     </section>
   </main>

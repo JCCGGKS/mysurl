@@ -107,6 +107,7 @@ async function logout() {
       <div class="sidebar-user">
         <p class="sidebar-user-label">当前账号</p>
         <strong>{{ currentUser?.username || 'unknown' }}</strong>
+        <RouterLink class="ghost-link sidebar-link" to="/change-password">修改密码</RouterLink>
         <button class="ghost-link sidebar-logout" type="button" @click="logout">退出登录</button>
       </div>
     </aside>

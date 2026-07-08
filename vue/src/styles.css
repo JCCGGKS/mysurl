@@ -284,6 +284,13 @@ a {
   text-underline-offset: 3px;
 }
 
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  font-size: 0.9rem;
+}
+
 .auth-form {
   display: grid;
   gap: 15px;
