@@ -76,3 +76,15 @@ INSERT INTO users (
 
 	return uint64(id), nil
 }
+
+func (d *UserDAO) UpdatePassword(ctx context.Context, id uint64, passwordHash string) error {
+	query := `
+UPDATE users
+SET password_hash = ?
+WHERE id = ?
+  AND deleted_at IS NULL
+`
+
+	_, err := d.conn.ExecCtx(ctx, query, passwordHash, id)
+	return err
+}

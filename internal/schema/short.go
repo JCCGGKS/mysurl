@@ -54,6 +54,12 @@ type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type ChangePasswordRequest struct {
+	Username        string `json:"username"`
+	NewPassword     string `json:"new_password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+
 type CreateLinkResponse struct {
 	ShortCode   string `json:"short_code"`
 	ShortURL    string `json:"short_url"`

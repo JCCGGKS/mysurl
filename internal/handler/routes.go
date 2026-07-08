@@ -43,6 +43,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/api/v1/auth/logout",
 				Handler: LogoutHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/v1/auth/change-password",
+				Handler: ChangePasswordHandler(serverCtx),
+			},
 		},
 	)
 	server.AddRoutes(rest.WithMiddlewares(
