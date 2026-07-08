@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { clearAuth, getAccessToken } from './services/auth'
 import LoginView from './views/auth/LoginView.vue'
 import RegisterView from './views/auth/RegisterView.vue'
+import ChangePasswordView from './views/auth/ChangePasswordView.vue'
 import HomeView from './views/home/HomeView.vue'
 import DashboardLayout from './views/layout/DashboardLayout.vue'
 import CreateView from './views/links/CreateView.vue'
@@ -25,6 +26,12 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: RegisterView,
+      meta: { guestOnly: true },
+    },
+    {
+      path: '/change-password',
+      name: 'change-password',
+      component: ChangePasswordView,
       meta: { guestOnly: true },
     },
     {
